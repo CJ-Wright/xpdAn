@@ -5,7 +5,8 @@ from itertools import islice
 from tifffile import imsave
 import scipy.stats as sts
 import numpy as np
-
+from matplotlib.path import Path
+from skbeam.io.save_powder_output import save_output
 
 def subs_dark(hdr, dark_hdr_idx=-1, dark_event_idx=-1):
     data_names = ['img']
@@ -34,7 +35,7 @@ def subs_dark(hdr, dark_hdr_idx=-1, dark_event_idx=-1):
 
 def mask_img(hdr, cal_hdr,
              alpha=2.5, lower_thresh=0.0, upper_thresh=None,
-             margin=30., tmsk=None):
+             margin=30., tmsk=None, bs_width=13, tri_offset=13, v_asym=0):
     data_names = ['msk']
     data_keys = {k: dict(
         source='auto_mask',
@@ -57,6 +58,26 @@ def mask_img(hdr, cal_hdr,
             tmsk *= (img > lower_thresh).astype(bool)
         if upper_thresh:
             tmsk *= (img < upper_thresh).astype(bool)
+        if all([a is not None for a in [bs_width, tri_offset, v_asym]]):
+            center_x, center_y = [geo.getFit2D()[k] for k in
+                                  ['centerX', 'centerY']]
+            nx, ny = img.shape
+            mask_verts = [(center_x - bs_width, center_y),
+                          (center_x, center_y - tri_offset),
+                          (center_x + bs_width, center_y),
+                          (center_x + bs_width + v_asym, ny),
+                          (center_x - bs_width - v_asym, ny)]
+
+            x, y = np.meshgrid(np.arange(nx), np.arange(ny))
+            x, y = x.flatten(), y.flatten()
+
+            points = np.vstack((x, y)).T
+
+            path = Path(mask_verts)
+            grid = path.contains_points(points)
+            # Plug msk_grid into into next (edge-mask) step in automask
+            tmsk *= grid.reshape((ny, nx))
+
         if alpha:
             tmsk *= ring_blur_mask(img, r, alpha, rbins, mask=tmsk)
         # save
