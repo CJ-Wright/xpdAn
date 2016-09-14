@@ -8,6 +8,7 @@ import numpy as np
 from matplotlib.path import Path
 from skbeam.io.save_powder_output import save_output
 
+
 def subs_dark(hdr, dark_hdr_idx=-1, dark_event_idx=-1):
     data_names = ['img']
     data_keys = {k: dict(
