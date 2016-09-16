@@ -32,7 +32,7 @@ def insert_imgs(mds, fs, n, shape, save_dir=tempfile.mkdtemp()):
                     data_keys=data_keys,
                     time=time.time(), uid=str(uuid4()))
     descriptor = mds.insert_descriptor(**data_hdr)
-    for i, img in imgs:
+    for i, img in enumerate(imgs):
         fs_uid = str(uuid4())
         fn = os.path.join(save_dir, fs_uid + '.npy')
         np.save(fn, img)
