@@ -1,12 +1,13 @@
-from xpdan.startup.start import db, mds, fs, mds_fs_dec
-from uuid import uuid4
-import time
 from itertools import islice
-from tifffile import imsave
-import scipy.stats as sts
+
 import numpy as np
+import scipy.stats as sts
 from matplotlib.path import Path
 from skbeam.io.save_powder_output import save_output
+from tifffile import imsave
+
+from xpdan.run_engine import mds_fs_dec
+from xpdan.startup.start import db
 
 
 @mds_fs_dec(['img'],
@@ -133,7 +134,12 @@ def background_subtraction(hdr, bg_scale=1):
         save_output(fg_iq[0], corrected_iq, 'file_loc', 'Q')
         yield fg_iq[0], corrected_iq
 
-
+@mds_fs_dec(['img'],
+            dict(source='background_subtraction', external='FILESTORE:', dtype='array'),
+            save_output,
+            '.',
+            'TIFF',
+            )
 def sum_images(hdr, sum_list=None):
     if sum_list is None:
         img = None
@@ -153,7 +159,6 @@ def sum_images(hdr, sum_list=None):
                 else:
                     img += islice(events, idx)['data']['img']
             yield img
-
 
 
 def mask(img, geo, alpha=2.5, lower_thresh=0.0, upper_thresh=None, margin=30.,

@@ -2,9 +2,26 @@ import numpy as np
 from uuid import uuid4
 import time
 import tempfile
+from filestore.file_writers import save_ndarray
+import os
 
 
-def insert_imgs(mds, fs, n, shape):
+def insert_imgs(mds, fs, n, shape, save_dir=tempfile.mkdtemp()):
+    """
+    Insert images into mds and fs for testing
+
+    Parameters
+    ----------
+    mds
+    fs
+    n
+    shape
+    save_dir
+
+    Returns
+    -------
+
+    """
     imgs = [np.ones(shape)] * n
     run_start = mds.insert_run_start(uid=str(uuid4()), time=time.time(),
                                      name='test')
@@ -16,13 +33,20 @@ def insert_imgs(mds, fs, n, shape):
                     time=time.time(), uid=str(uuid4()))
     descriptor = mds.insert_descriptor(**data_hdr)
     for i, img in imgs:
+        fs_uid = str(uuid4())
+        fn = os.path.join(save_dir, fs_uid + '.npy')
+        np.save(fn, img)
+        fs_res = fs.insert_resource('npy', fn)
+        fs.insert_datum(fs_res, fs_uid, fs_kwargs={})
         # insert into FS
-        save_name = tempfile.mkstemp()
-        fs
         mds.insert_event(
             descriptor=descriptor,
             uid=str(uuid4()),
             time=time.time(),
-            data={k: v for k, v in zip(data_names, res)},
+            data={k: v for k, v in zip(['img'], fs_uid)},
             timestamps={},
             seq_num=i)
+    mds.insert_run_stop(run_start=run_start,
+                        uid=str(uuid4()),
+                        time=time.time())
+    return save_dir
