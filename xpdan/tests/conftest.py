@@ -1,15 +1,14 @@
-import uuid
 import shutil
-import os
 import sys
-import tempfile
-import tzlocal
-from databroker import Broker
+import uuid
+
 import pytest
+from databroker import Broker
+
 from .utils import insert_imgs
 
 if sys.version_info >= (3, 0):
-    from bluesky.tests.conftest import fresh_RE as RE
+    pass
 
 
 @pytest.fixture(params=[
@@ -42,7 +41,8 @@ def db_with_imgs(request):
 #     tempdirname = tempfile.mkdtemp()
 #     mds = MDS({'directory': tempdirname,
 #                'timezone': tzlocal.get_localzone().zone}, version=1)
-#     filenames = ['run_starts.json', 'run_stops.json', 'event_descriptors.json',
+#     filenames = ['run_starts.json', 'run_stops.json',
+#                  'event_descriptors.json',
 #                  'events.json']
 #     for fn in filenames:
 #         with open(os.path.join(tempdirname, fn), 'w') as f:

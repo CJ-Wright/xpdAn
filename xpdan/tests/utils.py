@@ -1,9 +1,9 @@
-import numpy as np
-from uuid import uuid4
-import time
-import tempfile
-from filestore.file_writers import save_ndarray
 import os
+import tempfile
+import time
+from uuid import uuid4
+
+import numpy as np
 
 
 def insert_imgs(mds, fs, n, shape, save_dir=tempfile.mkdtemp()):

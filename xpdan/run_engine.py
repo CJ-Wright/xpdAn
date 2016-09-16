@@ -1,6 +1,7 @@
-from xpdan.startup.start import db, mds, fs
-from uuid import uuid4
 import time
+from uuid import uuid4
+
+from xpdan.startup.start import mds, fs
 
 
 def analysis_run_engine(hdrs, run_function, md=None, subscription=None,
@@ -108,9 +109,9 @@ def mds_fs_dec(data_names, data_sub_keys, save_func=None, save_loc=None,
     then inserted into FS. This translates to, `data_keys` has a
     `external='Filestore:` key-value pair so we should return the uid
     2. The data is generated and then saved in MDS because it is not huge.
-    This translates to there is no `external` for this data key and no `save_func`,
-     just store the python object directly, we should return the python object
-     itself.
+    This translates to there is no `external` for this data key and no
+    `save_func`, just store the python object directly, we should return the
+    python object itself.
     3. The data already exists in FS, we just want to link it to some other
     data. Translation, there is (maybe) no `save_func` (or is there a dummy
     save func which hands back the uid) but we still need to give back

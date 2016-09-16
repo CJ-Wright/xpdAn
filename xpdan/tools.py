@@ -41,7 +41,8 @@ def mask_img(hdr, cal_hdr, alpha=2.5, lower_thresh=0.0, upper_thresh=None,
 
 
 @mds_fs_dec(['img'],
-            dict(source='pyFAI-polarization', external='FILESTORE:', dtype='array'),
+            dict(source='pyFAI-polarization', external='FILESTORE:',
+                 dtype='array'),
             np.save,
             '.',
             'TIFF')
@@ -60,7 +61,6 @@ def polarization_correction(hdr, cal_hdr, polarization=.99):
             'CHI',
             'Q')
 def integrate(img_hdr, mask_hdr, cal_hdr, stat='mean', npt=1500):
-
     # TODO: add these back when we figure out how to handle arbitrary numbers
     # of events
     # if not isinstance(stats, list):
@@ -112,7 +112,8 @@ def associate_background(hdr, iqs, bg_hdr, bg_iq, match_key=None):
 
 
 @mds_fs_dec(['iq'],
-            dict(source='background_subtraction', external='FILESTORE:', dtype='array'),
+            dict(source='background_subtraction', external='FILESTORE:',
+                 dtype='array'),
             save_output,
             '.',
             'CHI',
@@ -134,8 +135,10 @@ def background_subtraction(hdr, bg_scale=1):
         save_output(fg_iq[0], corrected_iq, 'file_loc', 'Q')
         yield fg_iq[0], corrected_iq
 
+
 @mds_fs_dec(['img'],
-            dict(source='background_subtraction', external='FILESTORE:', dtype='array'),
+            dict(source='background_subtraction', external='FILESTORE:',
+                 dtype='array'),
             save_output,
             '.',
             'TIFF',
