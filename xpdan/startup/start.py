@@ -9,13 +9,13 @@ from databroker import Broker
 # This an example. You'll need to know your local configuration.
 mds = MDS({'host': 'localhost',
            'port': 27017,
-           'database': 'metadatastore-production-v1',
+           'database': 'metadatastore-analysis-alpha',
            'timezone': 'US/Eastern'})
 
 # This an example. You'll need to know your local configuration.
 fs = FileStore({'host': 'localhost',
                 'port': 27017,
-                'database': 'filestore-production-v1'})
+                'database': 'filestore-analysis-alpha'})
 
 db = Broker(mds, fs)
 
