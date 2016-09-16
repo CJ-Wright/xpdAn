@@ -134,6 +134,28 @@ def background_subtraction(hdr, bg_scale=1):
         yield fg_iq[0], corrected_iq
 
 
+def sum_images(hdr, sum_list=None):
+    if sum_list is None:
+        img = None
+        for event in db.get_events(hdr, fill=True):
+            if img is None:
+                img = event['data']['img']
+            else:
+                img += event['data']['img']
+        yield img
+    else:
+        for idxs in sum_list:
+            events = db.get_events(hdr, fill=True)
+            img = None
+            for idx in idxs:
+                if img is None:
+                    img = islice(events, idx)['data']['img']
+                else:
+                    img += islice(events, idx)['data']['img']
+            yield img
+
+
+
 def mask(img, geo, alpha=2.5, lower_thresh=0.0, upper_thresh=None, margin=30.,
          bs_width=13, tri_offset=13, v_asym=0, tmsk=None):
     r = geo.rArray(img.shape)
