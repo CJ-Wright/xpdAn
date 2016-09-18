@@ -36,6 +36,7 @@ before_install:
   - cd ~/scripts
   - git fetch --all
   - git checkout init_error
+  - cd
   # install miniconda/anaconda-client/conda-build
   - . ~/scripts/install-miniconda.sh
   - . ~/scripts/init-filestore.sh
