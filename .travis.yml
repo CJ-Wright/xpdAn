@@ -32,7 +32,10 @@ matrix:
 
 before_install:
   # clone conda install/build/upload helper scripts and make them executable
-  - git clone https://github.com/CJ-Wright/nsls2-ci/tree/init_error ~/scripts
+  - git clone https://github.com/CJ-Wright/nsls2-ci.git ~/scripts
+  - cd ~/scripts
+  - git fetch --all
+  - git checkout init_error
   # install miniconda/anaconda-client/conda-build
   - . ~/scripts/install-miniconda.sh
   - . ~/scripts/init-filestore.sh
