@@ -31,28 +31,12 @@ matrix:
       env: BUILD_DOCS=true
 
 before_install:
-  - git clone https://github.com/NSLS-II/nsls2-ci --branch master --single-branch ~/ci_scripts
-  - "/sbin/start-stop-daemon --start --quiet --pidfile /tmp/custom_xvfb_99.pid --make-pidfile --background --exec /usr/bin/Xvfb -- :99 -ac -screen 0 1280x1024x16"
-  - "export DISPLAY=:99.0"
-  - if [ ${TRAVIS_PYTHON_VERSION:0:1} == "2" ]; then wget http://repo.continuum.io/miniconda/Miniconda-3.5.5-Linux-x86_64.sh -O miniconda.sh; else wget http://repo.continuum.io/miniconda/Miniconda3-3.5.5-Linux-x86_64.sh -O miniconda.sh; fi
-  - chmod +x miniconda.sh
-  - ./miniconda.sh -b -p /home/travis/mc
-  - export PATH=/home/travis/mc/bin:$PATH
-  - conda config --set show_channel_urls True
-  - conda config --set always_yes True
-  - export MDS_HOST=localhost
-  - export MDS_DATABASE=test
-  - export MDS_TIMEZONE=US/Eastern
-  - export MDS_MONGO_USER=tom
-  - export MDS_MONGO_PWD=jerry
-  - mkdir -p /home/travis/.config/metadatastore
-  - 'echo ''port: 27017'' > /home/travis/.config/metadatastore/connection.yml'
-  - export FS_HOST=localhost
-  - export FS_DATABASE=test
-  - export FS_MONGO_USER=tom
-  - export FS_MONGO_PWD=jerry
-  - mkdir -p /home/travis/.config/filestore
-  - 'echo ''port: 27017'' > /home/travis/.config/filestore/connection.yml'
+  # clone conda install/build/upload helper scripts and make them executable
+  - git clone https://github.com/NSLS-II/nsls2-ci ~/scripts
+  # install miniconda/anaconda-client/conda-build
+  - . ~/scripts/install-miniconda.sh
+  - . ~/scripts/init-filestore.sh
+  - . ~/scripts/init-metadatastore.sh
 
 
 install:
