@@ -10,12 +10,16 @@ from databroker import Broker
 mds = MDS({'host': 'localhost',
            'port': 27017,
            'database': 'metadatastore-analysis-alpha',
-           'timezone': 'US/Eastern'})
+           'timezone': 'US/Eastern',
+           'mongo_user': 'tom',
+           'mongo_pwd': 'jerry'})
 
 # This an example. You'll need to know your local configuration.
 fs = FileStore({'host': 'localhost',
                 'port': 27017,
-                'database': 'filestore-analysis-alpha'})
+                'database': 'filestore-analysis-alpha',
+                'mongo_user':'tom',
+                'mongo_pwd':'jerry'})
 
 db = Broker(mds, fs)
 
