@@ -1,4 +1,3 @@
-import numpy as np
 from xpdan.run_engine import analysis_run_engine
 from xpdan.tools import sum_images
 

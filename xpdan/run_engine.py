@@ -31,6 +31,8 @@ def analysis_run_engine(hdrs, run_function, md=None, subscription=None,
     -------
 
     """
+    if not isinstance(hdrs, list):
+        hdrs = [hdrs]
     # write analysisstore header
     run_start = mds.insert_run_start(
         uid=str(uuid4()),
