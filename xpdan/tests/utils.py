@@ -36,8 +36,8 @@ def insert_imgs(mds, fs, n, shape, save_dir=tempfile.mkdtemp()):
         fs_uid = str(uuid4())
         fn = os.path.join(save_dir, fs_uid + '.npy')
         np.save(fn, img)
-        fs_res = fs.insert_resource('npy', fn)
-        fs.insert_datum(fs_res, fs_uid, fs_kwargs={})
+        fs_res = fs.insert_resource('npy', fn, resource_kwargs={})
+        fs.insert_datum(fs_res, fs_uid, datum_kwargs={})
         # insert into FS
         mds.insert_event(
             descriptor=descriptor,

@@ -76,7 +76,7 @@ def analysis_run_engine(hdrs, run_function, md=None, subscription=None,
 
 # TODO: smarter person(s) than me should split this into two decorators
 def mds_fs_dec(data_names, data_sub_keys, save_func=None, save_loc=None,
-               spec=None, fs_kwargs={}, **kwargs):
+               spec=None, resource_kwargs={}, datum_kwargs={}, **dec_kwargs):
     """
     Decorator for saving analysis outputs to MDS/FS
 
@@ -94,7 +94,7 @@ def mds_fs_dec(data_names, data_sub_keys, save_func=None, save_loc=None,
         The save location for the data on disk
     spec: str
         The FS spec string
-    fs_kwargs:
+    resource_kwargs:
         kwargs passed to fs.insert_datum
 
     Returns
@@ -132,11 +132,12 @@ def mds_fs_dec(data_names, data_sub_keys, save_func=None, save_loc=None,
                     # make save name
                     save_name = save_loc + uid
                     # Save using the save function
-                    s(b, save_name)
+                    s(b, save_name, **dec_kwargs)
                     # Insert into FS
                     uid = str(uuid4())
-                    fs_res = fs.insert_resource(spec, save_name)
-                    fs.insert_datum(fs_res, uid, fs_kwargs)
+                    fs_res = fs.insert_resource(spec, save_name,
+                                                resource_kwargs)
+                    fs.insert_datum(fs_res, uid, datum_kwargs)
                 # TODO: need to unpack a little better
                 yield returns, data_names, data_keys, outs
 
