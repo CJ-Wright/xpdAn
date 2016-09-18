@@ -38,7 +38,7 @@ def analysis_run_engine(hdrs, run_function, md=None, subscription=None,
         uid=str(uuid4()),
         time=time.time(),
         provenance={'function_name': run_function.__name__,
-                    'hdr_uids': [hdr['uid'] for hdr in hdrs],
+                    'hdr_uids': [hdr['start']['uid'] for hdr in hdrs],
                     'kwargs': kwargs},
         **md)
 

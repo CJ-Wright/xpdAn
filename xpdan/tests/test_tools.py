@@ -3,8 +3,9 @@ from xpdan.tools import sum_images
 
 
 def test_sum_images(db_with_imgs):
+    print(db_with_imgs[-1])
+    print(db_with_imgs[-1].keys())
     hdr = analysis_run_engine(db_with_imgs[-1], sum_images,
                               md={'name': 'test'})
-    print(hdr)
     events = db_with_imgs.get_events(hdr)
     assert len(list(events)) == 1
