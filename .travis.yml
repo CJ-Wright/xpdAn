@@ -44,13 +44,13 @@ install:
   - conda create -n testenv nose python=$TRAVIS_PYTHON_VERSION numpy scipy databroker bluesky pytest coverage pip databroker historydict boltons doct lmfit jinja2 icu pyzmq  xlrd scikit-beam matplotlib -c lightsource2 -c conda-forge -c soft-matter
   - source activate testenv
   - 'pip install python-coveralls'
-#  - 'pip install https://github.com/NSLS-II/event-model/zipball/master#egg=event_model'
-#  - conda remove metadatastore databroker filestore --yes
-#  - 'pip install https://github.com/NSLS-II/databroker/zipball/master#egg=databroker'
-#  - 'pip install https://github.com/NSLS-II/filestore/zipball/master#egg=filestore'
-#  - 'pip install https://github.com/NSLS-II/metadatastore/zipball/master#egg=metadatastore'
-#  - 'pip install https://github.com/NSLS-II/portable-mds/zipball/master#egg=portable_mds'
-#  - 'pip install https://github.com/NSLS-II/bluesky/zipball/master#egg=bluesky'
+  - 'pip install https://github.com/NSLS-II/event-model/zipball/master#egg=event_model'
+  - conda remove metadatastore databroker filestore --yes
+  - 'pip install https://github.com/NSLS-II/databroker/zipball/master#egg=databroker'
+  - 'pip install https://github.com/NSLS-II/filestore/zipball/master#egg=filestore'
+  - 'pip install https://github.com/NSLS-II/metadatastore/zipball/master#egg=metadatastore'
+  - 'pip install https://github.com/NSLS-II/portable-mds/zipball/master#egg=portable_mds'
+  - 'pip install https://github.com/NSLS-II/bluesky/zipball/master#egg=bluesky'
   - pip install codecov flake8
   - python setup.py install
   # Need to clean the python build directory (and other cruft) or pytest is
