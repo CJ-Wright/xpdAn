@@ -2,6 +2,7 @@ import time
 from uuid import uuid4
 
 from xpdan.startup.start import mds, fs
+import traceback
 
 
 # TODO: need to switch this over so mds, fs bindings done more dynamically
@@ -68,9 +69,12 @@ def analysis_run_engine(hdrs, run_function, md=None, subscription=None,
         exit_md['exit_status'] = 'success'
     except Exception as e:
         print(e)
+        # Just for testing
+        print(traceback.format_exc())
         # Analysis failed!
         exit_md['exit_status'] = 'failure'
         exit_md['reason'] = repr(e)
+        exit_md['traceback'] = traceback.format_exc()
     finally:
         mds.insert_run_stop(run_start=run_start_uid,
                             uid=str(uuid4()),
@@ -144,7 +148,8 @@ def mds_fs_dec(data_names, data_sub_keys, save_func=None, save_loc=None,
                     fs.insert_datum(fs_res, uid, datum_kwargs)
                 # TODO: need to unpack a little better
                 yield returns, data_names, data_keys, outs
-
+        # TODO: fix this, it returns the name wrapper
+        wrapper.__name__=  f.__name__
         return wrapper
 
     return wrap

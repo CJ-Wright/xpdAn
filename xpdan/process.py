@@ -25,7 +25,8 @@ def process_to_iq(hdrs, det_cal_hdr_idx=-1):
     for hdr in hdrs:
         # 1. get a detector calibration
         cal_hdrs = analysis_db(is_detector_calibration=True,
-                               detector_calibration_uid=hdr['detector_calibration_uid'])
+                               detector_calibration_uid=hdr[
+                                   'detector_calibration_uid'])
         cal_hdr = cal_hdrs[det_cal_hdr_idx]
         cal_geo_hdr = find_an_hdr(cal_hdr['uid'], 'calibrate_detector')
         if not cal_geo_hdr:
@@ -65,7 +66,8 @@ def process_to_pdf(hdrs, bg_hdr_idx=-1, det_cal_hdr_idx=-1):
         hdrs = [hdrs]
     for hdr in hdrs:
         iqs = process_to_iq(hdr, det_cal_hdr_idx=det_cal_hdr_idx)
-        bg_hdrs = analysis_db(is_background=True, background_uid=hdr['background_uid'])
+        bg_hdrs = analysis_db(is_background=True,
+                              background_uid=hdr['background_uid'])
         bg_hdr = bg_hdrs[bg_hdr_idx]
         bg_iq_hdr = find_an_hdr(bg_hdr['uid'], 'integrate')
         if not bg_iq_hdr:
