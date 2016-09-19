@@ -148,11 +148,11 @@ def build_pymongo_backed_broker_with_imgs(request):
     def delete_imgs():
         shutil.rmtree(save_dir)
 
-    request.addfinalizer(delete_imgs)
+    # request.addfinalizer(delete_imgs)
 
     def delete_analyized_data():
         shutil.rmtree(save_loc)
 
-    request.addfinalizer(delete_analyized_data)
+    # request.addfinalizer(delete_analyized_data)
 
     return Broker(mds, fs)
