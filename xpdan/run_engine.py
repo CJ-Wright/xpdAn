@@ -35,13 +35,14 @@ def analysis_run_engine(hdrs, run_function, md=None, subscription=None,
     """
     if not isinstance(hdrs, list):
         hdrs = [hdrs]
+    db_sanitized_kwargs = {k: repr(v) for k, v in kwargs.items()}
     # write analysisstore header
     run_start_uid = mds.insert_run_start(
         uid=str(uuid4()),
         time=time.time(),
         provenance={'function_name': run_function.__name__,
                     'hdr_uids': [hdr['start']['uid'] for hdr in hdrs],
-                    'kwargs': kwargs},
+                    'kwargs': db_sanitized_kwargs},
         **md)
 
     data_hdr = None
@@ -49,7 +50,8 @@ def analysis_run_engine(hdrs, run_function, md=None, subscription=None,
     # run the analysis function
     try:
         rf = run_function(*hdrs, **kwargs)
-        for i, res, data_names, data_keys, data in enumerate(rf):
+        for i, (res, data_names, data_keys, data) in enumerate(rf):
+            print(res, data_names, data_keys, data)
             if not data_hdr:
                 data_hdr = dict(run_start=run_start_uid,
                                 data_keys=data_keys,
@@ -62,15 +64,13 @@ def analysis_run_engine(hdrs, run_function, md=None, subscription=None,
                 data={k: v for k, v in zip(data_names, res)},
                 timestamps={},
                 seq_num=i)
-            if not isinstance(subscription, list):
-                subscription = [subscription]
             if subscription:
+                if not isinstance(subscription, list):
+                    subscription = [subscription]
                 for subs in subscription:
                     subs(data)
         exit_md['exit_status'] = 'success'
     except Exception as e:
-        print(e)
-        # Just for testing
         print(traceback.format_exc())
         # Analysis failed!
         exit_md['exit_status'] = 'failure'
@@ -129,7 +129,8 @@ def mds_fs_dec(data_names, data_sub_keys, save_func=None, save_loc=None,
 
     def wrap(f):
         def wrapper(*args, **kwargs):
-            data_keys = {k: v for k, v in zip(data_names, data_sub_keys)}
+            data_keys = {data_names[i]: data_sub_keys[i] for i in
+                         range(len(data_names))}
             # Run the function
             a = f(*args, **kwargs)  # snowflake retrieval/processing gen here
             for outs in a:
@@ -137,20 +138,23 @@ def mds_fs_dec(data_names, data_sub_keys, save_func=None, save_loc=None,
                 for b, s in zip(outs, save_func):
                     if s is None:
                         returns.append(b)
-                    uid = str(uuid4())
-                    # make save name
-                    save_name = save_loc + uid
-                    # Save using the save function
-                    s(b, save_name, **dec_kwargs)
-                    # Insert into FS
-                    uid = str(uuid4())
-                    fs_res = fs.insert_resource(spec, save_name,
-                                                resource_kwargs)
-                    fs.insert_datum(fs_res, uid, datum_kwargs)
+                    else:
+                        uid = str(uuid4())
+                        # make save name
+                        save_name = save_loc + uid
+                        # Save using the save function
+                        s(save_name, b, **dec_kwargs)
+                        # Insert into FS
+                        uid = str(uuid4())
+                        fs_res = fs.insert_resource(spec, save_name,
+                                                    resource_kwargs)
+                        fs.insert_datum(fs_res, uid, datum_kwargs)
+                        returns.append(uid)
                 # TODO: need to unpack a little better
                 yield returns, data_names, data_keys, outs
+
         # TODO: fix this, it returns the name wrapper
-        wrapper.__name__=  f.__name__
+        wrapper.__name__ = f.__name__
         return wrapper
 
     return wrap

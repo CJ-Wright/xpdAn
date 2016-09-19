@@ -4,8 +4,10 @@ import uuid
 
 import pytest
 from databroker import Broker
+from filestore.handlers import NpyHandler
 
 from .utils import insert_imgs
+from xpdan.startup.start import save_loc
 
 if sys.version_info >= (3, 0):
     pass
@@ -74,27 +76,28 @@ def build_pymongo_backed_broker(request):
     from filestore.fs import FileStore
 
     db_name = "mds_testing_disposable_{}".format(str(uuid.uuid4()))
-    test_conf = dict(database=db_name, host='localhost',
-                     port=27017, timezone='US/Eastern')
-    mds = MDS(test_conf, 1,
+    mds_test_conf = dict(database=db_name, host='localhost',
+                         port=27017, timezone='US/Eastern')
+    mds = MDS(mds_test_conf, 1,
               # auth=False
               )
 
     def delete_mds():
         print("DROPPING DB")
-        mds._connection.drop_database(db_name)
+        mds._connection.drop_database(mds_test_conf['database'])
 
     request.addfinalizer(delete_mds)
 
-    db_name = "fs_testing_base_disposable_{uid}"
-    test_conf = create_test_database(host='localhost',
-                                     port=27017, version=1,
-                                     db_template=db_name)
-    fs = FileStore(test_conf, version=1)
+    db_name = "fs_testing_base_disposable_{}".format(str(uuid.uuid4()))
+    fs_test_conf = create_test_database(host='localhost',
+                                        port=27017, version=1,
+                                        db_template=db_name)
+    fs = FileStore(fs_test_conf, version=1)
+    fs.register_handler('npy', NpyHandler)
 
     def delete_fs():
         print("DROPPING DB")
-        fs._connection.drop_database(test_conf['database'])
+        fs._connection.drop_database(fs_test_conf['database'])
 
     request.addfinalizer(delete_fs)
 
@@ -111,36 +114,41 @@ def build_pymongo_backed_broker_with_imgs(request):
     from filestore.fs import FileStore
 
     db_name = "mds_testing_disposable_{}".format(str(uuid.uuid4()))
-    test_conf = dict(database=db_name, host='localhost',
-                     port=27017, timezone='US/Eastern')
-    mds = MDS(test_conf, 1,
+    mds_test_conf = dict(database=db_name, host='localhost',
+                         port=27017, timezone='US/Eastern')
+    mds = MDS(mds_test_conf, 1,
               # auth=False
               )
 
     def delete_mds():
         print("DROPPING DB")
-        mds._connection.drop_database(db_name)
+        mds._connection.drop_database(mds_test_conf['database'])
 
     request.addfinalizer(delete_mds)
 
-    db_name = "fs_testing_base_disposable_{uid}"
-    test_conf = create_test_database(host='localhost',
-                                     port=27017, version=1,
-                                     db_template=db_name)
-    fs = FileStore(test_conf, version=1)
+    db_name = "fs_testing_disposable_{}".format(str(uuid.uuid4()))
+    fs_test_conf = create_test_database(host='localhost',
+                                        port=27017, version=1,
+                                        db_template=db_name)
+    fs = FileStore(fs_test_conf, version=1)
+    fs.register_handler('npy', NpyHandler)
 
     def delete_fs():
         print("DROPPING DB")
-        fs._connection.drop_database(test_conf['database'])
+        fs._connection.drop_database(fs_test_conf['database'])
 
     request.addfinalizer(delete_fs)
-
     # add images/headers via bluesky run engine
     save_dir = insert_imgs(mds, fs, 5, (200, 200))
 
-    def delete_dm():
+    def delete_imgs():
         shutil.rmtree(save_dir)
 
-    request.addfinalizer(delete_dm)
+    request.addfinalizer(delete_imgs)
+
+    def delete_analyized_data():
+        shutil.rmtree(save_loc)
+
+    request.addfinalizer(delete_analyized_data)
 
     return Broker(mds, fs)

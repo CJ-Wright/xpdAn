@@ -7,13 +7,13 @@ from skbeam.io.save_powder_output import save_output
 from tifffile import imsave
 
 from xpdan.run_engine import mds_fs_dec
-from xpdan.startup.start import analysis_db
+from xpdan.startup.start import analysis_db, save_loc
 
 
 @mds_fs_dec(['img'],
             dict(source='subs_dark', external='FILESTORE:', dtype='array'),
             imsave,
-            '.',
+            save_loc,
             'TIFF')
 def subs_dark(hdr, dark_hdr_idx=-1, dark_event_idx=-1):
     dark_hdr = analysis_db(is_dark_img=True, dark_uid=hdr['dark_uid'])[dark_hdr_idx]
@@ -28,7 +28,7 @@ def subs_dark(hdr, dark_hdr_idx=-1, dark_event_idx=-1):
 @mds_fs_dec(['msk'],
             dict(source='auto_mask', external='FILESTORE:', dtype='array'),
             np.save,
-            '.',
+            save_loc,
             'npy')
 def mask_img(hdr, cal_hdr, alpha=2.5, lower_thresh=0.0, upper_thresh=None,
              margin=30., bs_width=13, tri_offset=13, v_asym=0, tmsk=None):
@@ -44,7 +44,7 @@ def mask_img(hdr, cal_hdr, alpha=2.5, lower_thresh=0.0, upper_thresh=None,
             dict(source='pyFAI-polarization', external='FILESTORE:',
                  dtype='array'),
             np.save,
-            '.',
+            save_loc,
             'TIFF')
 def polarization_correction(hdr, cal_hdr, polarization=.99):
     geo = next(analysis_db.get_events(cal_hdr, fill=True))['data']['poni']
@@ -57,7 +57,7 @@ def polarization_correction(hdr, cal_hdr, polarization=.99):
 @mds_fs_dec(['iq_mean'],
             dict(source='cjw-integrate', external='FILESTORE:', dtype='array'),
             save_output,
-            '.',
+            save_loc,
             'CHI',
             'Q')
 def integrate(img_hdr, mask_hdr, cal_hdr, stat='mean', npt=1500):
@@ -115,7 +115,7 @@ def associate_background(hdr, iqs, bg_hdr, bg_iq, match_key=None):
             dict(source='background_subtraction', external='FILESTORE:',
                  dtype='array'),
             save_output,
-            '.',
+            save_loc,
             'CHI',
             'Q')
 def background_subtraction(hdr, bg_scale=1):
@@ -137,16 +137,16 @@ def background_subtraction(hdr, bg_scale=1):
 
 
 @mds_fs_dec(['img'],
-            dict(source='background_subtraction', external='FILESTORE:',
-                 dtype='array'),
-            save_output,
-            '.',
-            'TIFF',
+            [dict(source='background_subtraction', external='FILESTORE:',
+                 dtype='array')],
+            [np.save],
+            save_loc,
+            'npy',
             )
-def sum_images(hdr, sum_list=None):
+def sum_images(hdr, db, sum_list=None):
     if sum_list is None:
         img = None
-        for event in analysis_db.get_events(hdr, fill=True):
+        for event in db.get_events(hdr, fill=True):
             if img is None:
                 img = event['data']['img']
             else:
@@ -154,6 +154,7 @@ def sum_images(hdr, sum_list=None):
         yield img
     else:
         for idxs in sum_list:
+            # TODO: if idxs are tuple do slice magic
             events = analysis_db.get_events(hdr, fill=True)
             img = None
             for idx in idxs:

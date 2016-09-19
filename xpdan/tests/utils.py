@@ -36,14 +36,14 @@ def insert_imgs(mds, fs, n, shape, save_dir=tempfile.mkdtemp()):
         fs_uid = str(uuid4())
         fn = os.path.join(save_dir, fs_uid + '.npy')
         np.save(fn, img)
+        # insert into FS
         fs_res = fs.insert_resource('npy', fn, resource_kwargs={})
         fs.insert_datum(fs_res, fs_uid, datum_kwargs={})
-        # insert into FS
         mds.insert_event(
             descriptor=descriptor,
             uid=str(uuid4()),
             time=time.time(),
-            data={k: v for k, v in zip(['img'], fs_uid)},
+            data={'img':fs_uid},
             timestamps={},
             seq_num=i)
     mds.insert_run_stop(run_start=run_start,

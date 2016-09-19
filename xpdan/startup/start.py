@@ -4,7 +4,9 @@ This module is for initializing the analysis database
 
 from metadatastore.mds import MDS  # "metadata store read and write"
 from filestore.fs import FileStore  # "file store read and write"
+from filestore.utils import install_sentinels
 from databroker import Broker
+import tempfile
 
 # This an example. You'll need to know your local configuration.
 mds = MDS({'host': 'localhost',
@@ -14,7 +16,6 @@ mds = MDS({'host': 'localhost',
            # 'mongo_user': 'tom',
            # 'mongo_pwd': 'jerry'
            })
-
 # This an example. You'll need to know your local configuration.
 fs = FileStore({'host': 'localhost',
                 'port': 27017,
@@ -22,8 +23,9 @@ fs = FileStore({'host': 'localhost',
                 # 'mongo_user':'tom',
                 # 'mongo_pwd':'jerry'
                 })
-
 analysis_db = Broker(mds, fs)
+
+save_loc = tempfile.mkdtemp()
 
 # Delete this when the main decorator runs, we know this one works kinda
 # def d(data_names, data_keys, save_func=None, save_loc='.'):
