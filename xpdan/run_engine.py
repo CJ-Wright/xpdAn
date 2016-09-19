@@ -68,7 +68,7 @@ def analysis_run_engine(hdrs, run_function, md=None, subscription=None,
     except Exception as e:
         # Analysis failed!
         exit_md['exit_status'] = 'failure'
-        exit_md['reason'] = e
+        exit_md['reason'] = repr(e)
     finally:
         mds.insert_run_stop(run_start=run_start,
                             uid=str(uuid4()),
