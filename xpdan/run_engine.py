@@ -34,7 +34,7 @@ def analysis_run_engine(hdrs, run_function, md=None, subscription=None,
     if not isinstance(hdrs, list):
         hdrs = [hdrs]
     # write analysisstore header
-    run_start = mds.insert_run_start(
+    run_start_uid = mds.insert_run_start(
         uid=str(uuid4()),
         time=time.time(),
         provenance={'function_name': run_function.__name__,
@@ -49,7 +49,7 @@ def analysis_run_engine(hdrs, run_function, md=None, subscription=None,
         rf = run_function(*hdrs, **kwargs)
         for i, res, data_names, data_keys, data in enumerate(rf):
             if not data_hdr:
-                data_hdr = dict(run_start=run_start,
+                data_hdr = dict(run_start=run_start_uid,
                                 data_keys=data_keys,
                                 time=time.time(), uid=str(uuid4()))
                 descriptor = mds.insert_descriptor(**data_hdr)
@@ -71,10 +71,10 @@ def analysis_run_engine(hdrs, run_function, md=None, subscription=None,
         exit_md['exit_status'] = 'failure'
         exit_md['reason'] = repr(e)
     finally:
-        mds.insert_run_stop(run_start=run_start,
+        mds.insert_run_stop(run_start=run_start_uid,
                             uid=str(uuid4()),
                             time=time.time(), **exit_md)
-        return run_start
+        return run_start_uid
 
 
 # TODO: smarter person(s) than me should split this into two decorators
