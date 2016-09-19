@@ -4,6 +4,7 @@ from uuid import uuid4
 from xpdan.startup.start import mds, fs
 
 
+# TODO: need to switch this over so mds, fs bindings done more dynamically
 def analysis_run_engine(hdrs, run_function, md=None, subscription=None,
                         **kwargs):
     """
