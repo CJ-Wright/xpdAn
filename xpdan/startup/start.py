@@ -7,6 +7,7 @@ from filestore.fs import FileStore  # "file store read and write"
 from filestore.utils import install_sentinels
 from databroker import Broker
 import tempfile
+from filestore.handlers import NpyHandler
 
 # This an example. You'll need to know your local configuration.
 mds = MDS({'host': 'localhost',
@@ -23,6 +24,7 @@ fs = FileStore({'host': 'localhost',
                 # 'mongo_user':'tom',
                 # 'mongo_pwd':'jerry'
                 })
+fs.register_handler('npy', NpyHandler)
 analysis_db = Broker(mds, fs)
 
 save_loc = tempfile.mkdtemp()

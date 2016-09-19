@@ -12,9 +12,7 @@ from xpdan.startup.start import analysis_db, save_loc
 
 @mds_fs_dec(['img'],
             dict(source='subs_dark', external='FILESTORE:', dtype='array'),
-            imsave,
-            save_loc,
-            'TIFF')
+            imsave, save_loc, 'TIFF')
 def subs_dark(hdr, dark_hdr_idx=-1, dark_event_idx=-1):
     dark_hdr = analysis_db(is_dark_img=True, dark_uid=hdr['dark_uid'])[dark_hdr_idx]
     dark_events = analysis_db.get_events(dark_hdr, fill=True)
@@ -27,9 +25,7 @@ def subs_dark(hdr, dark_hdr_idx=-1, dark_event_idx=-1):
 
 @mds_fs_dec(['msk'],
             dict(source='auto_mask', external='FILESTORE:', dtype='array'),
-            np.save,
-            save_loc,
-            'npy')
+            np.save, save_loc, 'npy')
 def mask_img(hdr, cal_hdr, alpha=2.5, lower_thresh=0.0, upper_thresh=None,
              margin=30., bs_width=13, tri_offset=13, v_asym=0, tmsk=None):
     geo = next(analysis_db.get_events(cal_hdr, fill=True))['data']['poni']
@@ -40,12 +36,8 @@ def mask_img(hdr, cal_hdr, alpha=2.5, lower_thresh=0.0, upper_thresh=None,
         yield working_mask
 
 
-@mds_fs_dec(['img'],
-            dict(source='pyFAI-polarization', external='FILESTORE:',
-                 dtype='array'),
-            np.save,
-            save_loc,
-            'TIFF')
+@mds_fs_dec(['img'], dict(source='pyFAI-polarization', external='FILESTORE:',
+                          dtype='array'), np.save, save_loc, 'TIFF')
 def polarization_correction(hdr, cal_hdr, polarization=.99):
     geo = next(analysis_db.get_events(cal_hdr, fill=True))['data']['poni']
     for event in analysis_db.get_events(hdr, fill=True):
@@ -56,10 +48,7 @@ def polarization_correction(hdr, cal_hdr, polarization=.99):
 
 @mds_fs_dec(['iq_mean'],
             dict(source='cjw-integrate', external='FILESTORE:', dtype='array'),
-            save_output,
-            save_loc,
-            'CHI',
-            'Q')
+            save_output, save_loc, 'CHI', resource_kwargs='Q')
 def integrate(img_hdr, mask_hdr, cal_hdr, stat='mean', npt=1500):
     # TODO: add these back when we figure out how to handle arbitrary numbers
     # of events
@@ -90,8 +79,7 @@ def integrate(img_hdr, mask_hdr, cal_hdr, stat='mean', npt=1500):
 
 @mds_fs_dec([['foreground_iq', 'background_iq']],
             dict(source='associate_background', external='FILESTORE:',
-                 dtype='array'),
-            )
+                 dtype='array'))
 def associate_background(hdr, iqs, bg_hdr, bg_iq, match_key=None):
     # mux the background data with the foreground data
     # TODO: get more complex, handle multiple match keys with a cost function
@@ -113,11 +101,8 @@ def associate_background(hdr, iqs, bg_hdr, bg_iq, match_key=None):
 
 @mds_fs_dec(['iq'],
             dict(source='background_subtraction', external='FILESTORE:',
-                 dtype='array'),
-            save_output,
-            save_loc,
-            'CHI',
-            'Q')
+                 dtype='array'), save_output, save_loc, 'CHI',
+            resource_kwargs='Q')
 def background_subtraction(hdr, bg_scale=1):
     ran_manual = False
 
@@ -138,11 +123,7 @@ def background_subtraction(hdr, bg_scale=1):
 
 @mds_fs_dec(['img'],
             [dict(source='background_subtraction', external='FILESTORE:',
-                 dtype='array')],
-            [np.save],
-            save_loc,
-            'npy',
-            )
+                  dtype='array')], [np.save], save_loc, 'npy', ext='.npy')
 def sum_images(hdr, db, sum_list=None):
     if sum_list is None:
         img = None

@@ -8,7 +8,7 @@ from filestore.handlers import NpyHandler
 
 from .utils import insert_imgs
 from xpdan.startup.start import save_loc
-
+from filestore.utils import install_sentinels
 if sys.version_info >= (3, 0):
     pass
 
@@ -130,6 +130,10 @@ def build_pymongo_backed_broker_with_imgs(request):
     fs_test_conf = create_test_database(host='localhost',
                                         port=27017, version=1,
                                         db_template=db_name)
+    try:
+        install_sentinels(fs_test_conf, 1)
+    except RuntimeError:
+        pass
     fs = FileStore(fs_test_conf, version=1)
     fs.register_handler('npy', NpyHandler)
 

@@ -3,6 +3,7 @@ from uuid import uuid4
 
 from xpdan.startup.start import mds, fs
 import traceback
+import os
 
 
 # TODO: need to switch this over so mds, fs bindings done more dynamically
@@ -85,12 +86,14 @@ def analysis_run_engine(hdrs, run_function, md=None, subscription=None,
 
 # TODO: smarter person(s) than me should split this into two decorators
 def mds_fs_dec(data_names, data_sub_keys, save_func=None, save_loc=None,
-               spec=None, resource_kwargs={}, datum_kwargs={}, **dec_kwargs):
+               spec=None, ext=None, resource_kwargs={}, datum_kwargs={},
+               **dec_kwargs):
     """
     Decorator for saving analysis outputs to MDS/FS
 
     Parameters
     ----------
+    ext
     data_names: list of str
         The names for each data
     data_sub_keys: list of dicts
@@ -141,7 +144,8 @@ def mds_fs_dec(data_names, data_sub_keys, save_func=None, save_loc=None,
                     else:
                         uid = str(uuid4())
                         # make save name
-                        save_name = save_loc + uid
+                        save_name = os.path.join(save_loc, uid + ext)
+                        print(save_name)
                         # Save using the save function
                         s(save_name, b, **dec_kwargs)
                         # Insert into FS
