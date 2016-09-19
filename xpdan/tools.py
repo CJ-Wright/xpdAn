@@ -14,7 +14,8 @@ from xpdan.startup.start import analysis_db, save_loc
             dict(source='subs_dark', external='FILESTORE:', dtype='array'),
             imsave, save_loc, 'TIFF')
 def subs_dark(hdr, dark_hdr_idx=-1, dark_event_idx=-1):
-    dark_hdr = analysis_db(is_dark_img=True, dark_uid=hdr['dark_uid'])[dark_hdr_idx]
+    dark_hdr = analysis_db(is_dark_img=True, dark_uid=hdr['dark_uid'])[
+        dark_hdr_idx]
     dark_events = analysis_db.get_events(dark_hdr, fill=True)
     dark_img = islice(dark_events, dark_event_idx)
     for event in analysis_db.get_events(hdr, fill=True):
@@ -55,8 +56,9 @@ def integrate(img_hdr, mask_hdr, cal_hdr, stat='mean', npt=1500):
     # if not isinstance(stats, list):
     #     stats = [stats]
     geo = next(analysis_db.get_events(cal_hdr, fill=True))['data']['poni']
-    for img_event, mask_event in zip(analysis_db.get_events(img_hdr, fill=True),
-                                     analysis_db.get_events(mask_hdr, fill=True)):
+    for img_event, mask_event in zip(
+            analysis_db.get_events(img_hdr, fill=True),
+            analysis_db.get_events(mask_hdr, fill=True)):
         mask = mask_event['data']['msk']
         img = img_event['data']['img'][mask]
         q = geo.qArray(img.shape)[mask] / 10  # pyFAI works in nm^1
@@ -86,7 +88,8 @@ def associate_background(hdr, iqs, bg_hdr, bg_iq, match_key=None):
     bg_iq_events = analysis_db.get_events(bg_iq)
     if match_key is not None:
         table = analysis_db.get_table(bg_hdr, fields=match_key)
-        for event, iq in zip(analysis_db.get_events(hdr), analysis_db.get_events(iqs)):
+        for event, iq in zip(analysis_db.get_events(hdr),
+                             analysis_db.get_events(iqs)):
             bg_event_idx = np.argmin(
                 np.abs(event[match_key] - table[match_key]))
             bg_event = next(islice(bg_iq_events, bg_event_idx))

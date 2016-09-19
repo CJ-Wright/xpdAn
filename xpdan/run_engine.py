@@ -93,7 +93,6 @@ def mds_fs_dec(data_names, data_sub_keys, save_func=None, save_loc=None,
 
     Parameters
     ----------
-    ext
     data_names: list of str
         The names for each data
     data_sub_keys: list of dicts
@@ -106,8 +105,12 @@ def mds_fs_dec(data_names, data_sub_keys, save_func=None, save_loc=None,
         The save location for the data on disk
     spec: str
         The FS spec string
+    ext: str
+        The extension of the file to be saved
     resource_kwargs:
         kwargs passed to fs.insert_datum
+    datum_kwargs: dict
+        kwags passed to filestore.insert_datum
 
     Returns
     -------
