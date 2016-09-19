@@ -23,7 +23,7 @@ fs = FileStore({'host': 'localhost',
                 # 'mongo_pwd':'jerry'
                 })
 
-db = Broker(mds, fs)
+analysis_db = Broker(mds, fs)
 
 # Delete this when the main decorator runs, we know this one works kinda
 # def d(data_names, data_keys, save_func=None, save_loc='.'):

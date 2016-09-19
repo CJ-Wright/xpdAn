@@ -7,7 +7,7 @@ from skbeam.io.save_powder_output import save_output
 from tifffile import imsave
 
 from xpdan.run_engine import mds_fs_dec
-from xpdan.startup.start import db
+from xpdan.startup.start import analysis_db
 
 
 @mds_fs_dec(['img'],
@@ -16,10 +16,10 @@ from xpdan.startup.start import db
             '.',
             'TIFF')
 def subs_dark(hdr, dark_hdr_idx=-1, dark_event_idx=-1):
-    dark_hdr = db(is_dark_img=True, dark_uid=hdr['dark_uid'])[dark_hdr_idx]
-    dark_events = db.get_events(dark_hdr, fill=True)
+    dark_hdr = analysis_db(is_dark_img=True, dark_uid=hdr['dark_uid'])[dark_hdr_idx]
+    dark_events = analysis_db.get_events(dark_hdr, fill=True)
     dark_img = islice(dark_events, dark_event_idx)
-    for event in db.get_events(hdr, fill=True):
+    for event in analysis_db.get_events(hdr, fill=True):
         light_img = event['data']['img']
         img = light_img - dark_img
         yield img
@@ -32,8 +32,8 @@ def subs_dark(hdr, dark_hdr_idx=-1, dark_event_idx=-1):
             'npy')
 def mask_img(hdr, cal_hdr, alpha=2.5, lower_thresh=0.0, upper_thresh=None,
              margin=30., bs_width=13, tri_offset=13, v_asym=0, tmsk=None):
-    geo = next(db.get_events(cal_hdr, fill=True))['data']['poni']
-    for event in db.get_events(hdr, fill=True):
+    geo = next(analysis_db.get_events(cal_hdr, fill=True))['data']['poni']
+    for event in analysis_db.get_events(hdr, fill=True):
         img = event['data']['img']
         working_mask = mask(img, geo, alpha, lower_thresh, upper_thresh,
                             margin, bs_width, tri_offset, v_asym, tmsk)
@@ -47,8 +47,8 @@ def mask_img(hdr, cal_hdr, alpha=2.5, lower_thresh=0.0, upper_thresh=None,
             '.',
             'TIFF')
 def polarization_correction(hdr, cal_hdr, polarization=.99):
-    geo = next(db.get_events(cal_hdr, fill=True))['data']['poni']
-    for event in db.get_events(hdr, fill=True):
+    geo = next(analysis_db.get_events(cal_hdr, fill=True))['data']['poni']
+    for event in analysis_db.get_events(hdr, fill=True):
         img = event['data']['img']
         img /= geo.polarization(img.shape, polarization)
         yield img
@@ -65,9 +65,9 @@ def integrate(img_hdr, mask_hdr, cal_hdr, stat='mean', npt=1500):
     # of events
     # if not isinstance(stats, list):
     #     stats = [stats]
-    geo = next(db.get_events(cal_hdr, fill=True))['data']['poni']
-    for img_event, mask_event in zip(db.get_events(img_hdr, fill=True),
-                                     db.get_events(mask_hdr, fill=True)):
+    geo = next(analysis_db.get_events(cal_hdr, fill=True))['data']['poni']
+    for img_event, mask_event in zip(analysis_db.get_events(img_hdr, fill=True),
+                                     analysis_db.get_events(mask_hdr, fill=True)):
         mask = mask_event['data']['msk']
         img = img_event['data']['img'][mask]
         q = geo.qArray(img.shape)[mask] / 10  # pyFAI works in nm^1
@@ -95,10 +95,10 @@ def integrate(img_hdr, mask_hdr, cal_hdr, stat='mean', npt=1500):
 def associate_background(hdr, iqs, bg_hdr, bg_iq, match_key=None):
     # mux the background data with the foreground data
     # TODO: get more complex, handle multiple match keys with a cost function
-    bg_iq_events = db.get_events(bg_iq)
+    bg_iq_events = analysis_db.get_events(bg_iq)
     if match_key is not None:
-        table = db.get_table(bg_hdr, fields=match_key)
-        for event, iq in zip(db.get_events(hdr), db.get_events(iqs)):
+        table = analysis_db.get_table(bg_hdr, fields=match_key)
+        for event, iq in zip(analysis_db.get_events(hdr), analysis_db.get_events(iqs)):
             bg_event_idx = np.argmin(
                 np.abs(event[match_key] - table[match_key]))
             bg_event = next(islice(bg_iq_events, bg_event_idx))
@@ -121,7 +121,7 @@ def associate_background(hdr, iqs, bg_hdr, bg_iq, match_key=None):
 def background_subtraction(hdr, bg_scale=1):
     ran_manual = False
 
-    for event in db.get_events(hdr, fill=True):
+    for event in analysis_db.get_events(hdr, fill=True):
         fg_iq, bg_iq = [event['data'][k] for k in
                         ['foreground_iq', 'background_iq']]
         if bg_scale == 'auto':
@@ -146,7 +146,7 @@ def background_subtraction(hdr, bg_scale=1):
 def sum_images(hdr, sum_list=None):
     if sum_list is None:
         img = None
-        for event in db.get_events(hdr, fill=True):
+        for event in analysis_db.get_events(hdr, fill=True):
             if img is None:
                 img = event['data']['img']
             else:
@@ -154,7 +154,7 @@ def sum_images(hdr, sum_list=None):
         yield img
     else:
         for idxs in sum_list:
-            events = db.get_events(hdr, fill=True)
+            events = analysis_db.get_events(hdr, fill=True)
             img = None
             for idx in idxs:
                 if img is None:
