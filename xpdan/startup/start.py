@@ -24,6 +24,10 @@ fs = FileStore({'host': 'localhost',
                 # 'mongo_user':'tom',
                 # 'mongo_pwd':'jerry'
                 })
+try:
+    install_sentinels(fs.config, 1)
+except (RuntimeError, AttributeError):
+    pass
 fs.register_handler('npy', NpyHandler)
 analysis_db = Broker(mds, fs)
 
