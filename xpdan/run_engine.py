@@ -66,6 +66,7 @@ def analysis_run_engine(hdrs, run_function, md=None, subscription=None,
                 subs(data)
         exit_md['exit_status'] = 'success'
     except Exception as e:
+        print(e)
         # Analysis failed!
         exit_md['exit_status'] = 'failure'
         exit_md['reason'] = repr(e)
