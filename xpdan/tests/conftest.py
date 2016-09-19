@@ -132,7 +132,7 @@ def build_pymongo_backed_broker_with_imgs(request):
                                         db_template=db_name)
     try:
         install_sentinels(fs_test_conf, 1)
-    except RuntimeError:
+    except (RuntimeError, AttributeError):
         pass
     fs = FileStore(fs_test_conf, version=1)
     fs.register_handler('npy', NpyHandler)
