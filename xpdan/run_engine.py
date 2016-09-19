@@ -64,8 +64,9 @@ def analysis_run_engine(hdrs, run_function, md=None, subscription=None,
                 seq_num=i)
             if not isinstance(subscription, list):
                 subscription = [subscription]
-            for subs in subscription:
-                subs(data)
+            if subscription:
+                for subs in subscription:
+                    subs(data)
         exit_md['exit_status'] = 'success'
     except Exception as e:
         print(e)
