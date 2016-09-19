@@ -116,13 +116,13 @@ def build_pymongo_backed_broker_with_imgs(request):
     db_name = "mds_testing_disposable_{}".format(str(uuid.uuid4()))
     mds_test_conf = dict(database=db_name, host='localhost',
                          port=27017, timezone='US/Eastern')
-    mds = MDS(mds_test_conf, 1,
+    exp_mds = MDS(mds_test_conf, 1,
               # auth=False
               )
 
     def delete_mds():
         print("DROPPING DB")
-        mds._connection.drop_database(mds_test_conf['database'])
+        exp_mds._connection.drop_database(mds_test_conf['database'])
 
     request.addfinalizer(delete_mds)
 
@@ -134,16 +134,16 @@ def build_pymongo_backed_broker_with_imgs(request):
         install_sentinels(fs_test_conf, 1)
     except (RuntimeError, AttributeError):
         pass
-    fs = FileStore(fs_test_conf, version=1)
-    fs.register_handler('npy', NpyHandler)
+    exp_fs = FileStore(fs_test_conf, version=1)
+    exp_fs.register_handler('npy', NpyHandler)
 
     def delete_fs():
         print("DROPPING DB")
-        fs._connection.drop_database(fs_test_conf['database'])
+        exp_fs._connection.drop_database(fs_test_conf['database'])
 
     request.addfinalizer(delete_fs)
     # add images/headers via bluesky run engine
-    save_dir = insert_imgs(mds, fs, 5, (200, 200))
+    save_dir = insert_imgs(exp_mds, exp_fs, 5, (200, 200))
 
     def delete_imgs():
         shutil.rmtree(save_dir)
@@ -155,4 +155,4 @@ def build_pymongo_backed_broker_with_imgs(request):
 
     # request.addfinalizer(delete_analyized_data)
 
-    return Broker(mds, fs)
+    return Broker(exp_mds, exp_fs)
