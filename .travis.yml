@@ -60,14 +60,14 @@ install:
 #  - 'pip install https://github.com/NSLS-II/filestore/zipball/master#egg=filestore'
 #  - 'pip install https://github.com/NSLS-II/metadatastore/zipball/master#egg=metadatastore'
 #  - 'pip install https://github.com/NSLS-II/portable-mds/zipball/master#egg=portable_mds'
-  - 'pip install https://github.com/NSLS-II/bluesky/zipball/master#egg=bluesky'
+#  - 'pip install https://github.com/NSLS-II/bluesky/zipball/master#egg=bluesky'
   - python setup.py install
   # Need to clean the python build directory (and other cruft) or pytest is
   # going to find the build directory and get confused why there are two sets
   # of every test file
   - python -c "from filestore import utils, conf; utils.install_sentinels(conf.connection_config, 1)"
   # make sure the sqlite file exists to avoid race conditions
-  - python -c "from bluesky.utils import get_history; get_history()"
+#  - python -c "from bluesky.utils import get_history; get_history()"
   - pip install codecov flake8 pyFAI pytest-env
   - git clean -xfd
 
