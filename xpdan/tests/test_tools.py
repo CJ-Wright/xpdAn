@@ -55,3 +55,17 @@ def test_ring_blur_mask():
     assert len(a_not_in_b) / len(b) < .1
     # Make certain that we have masked over 90% of the bad pixels
     assert len(b_not_in_a) / len(b) < .1
+
+
+def test_mask_img_smoke():
+    img = np.ones((200, 200))
+    from skbeam.core import recip
+    from xpdan.tools import mask_img
+    g = recip.geo.Geometry(
+        detector='Perkin', pixel1=.0002, pixel2=.0002,
+        dist=.23,
+        poni1=.209, poni2=.207,
+        # rot1=.0128, rot2=-.015, rot3=-5.2e-8,
+        wavelength=1.43e-11
+    )
+    mask_img(img, g)
