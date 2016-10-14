@@ -4,7 +4,9 @@ import time
 from uuid import uuid4
 
 import numpy as np
+from ..tools import compress_mask, decompress_mask, margin
 
+IMG_SHAPE = (200, 200)
 
 def insert_imgs(mds, fs, n, shape, save_dir=tempfile.mkdtemp()):
     """
@@ -25,8 +27,10 @@ def insert_imgs(mds, fs, n, shape, save_dir=tempfile.mkdtemp()):
     # Insert the dark images
     dark_img = np.ones(shape)
     dark_uid = str(uuid4())
+    mask = margin(dark_img.shape, 1)
     run_start = mds.insert_run_start(uid=str(uuid4()), time=time.time(),
                                      name='test-dark', dark_uid=dark_uid,
+                                     mask=compress_mask(mask),
                                      is_dark_img=True)
     data_keys = {
         'img': dict(source='testing', external='FILESTORE:',

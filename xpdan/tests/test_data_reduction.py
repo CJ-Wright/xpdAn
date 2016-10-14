@@ -3,13 +3,16 @@ from xpdan.data_reduction import integrate_and_save, sum_images, \
 from itertools import tee, product
 import pytest
 from pprint import pprint
+import numpy as np
+from ..tools import margin
+from numpy.testing import assert_array_equal
 
 sum_idx_values = (
     None, 'all', [1, 2, 3], [(1, 3)], [[1, 2, 3], [2, 3]], [[1, 3], (1, 3)])
 
 integrate_params = ['dark_sub_bool',
                     'polarization_factor',
-                    'mask',
+                    'mask_setting',
                     'mask_dict',
                     'save_image',
                     'root_dir',
@@ -17,7 +20,9 @@ integrate_params = ['dark_sub_bool',
                     'sum_idx_list']
 good_kwargs = [(True, False), (.99,
                                # .95, .5
-                               ), ('default', 'auto','None'),
+                               ), ('default', 'auto', 'None',
+                                   np.random.random_integers(
+                                       0, 1, (200, 200)).astype(bool)),
                                [None, {'alpha': 3}],
                (True, False), [None], [None], sum_idx_values]
 
@@ -99,3 +104,4 @@ def test_sum_logic_smoke(exp_db, handler, idxs):
         assert len(list(a)) == 1
     else:
         assert len(list(a)) == len(idxs)
+
