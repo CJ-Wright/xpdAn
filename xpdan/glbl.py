@@ -4,10 +4,12 @@ import tempfile
 from time import strftime
 
 import matplotlib
-#from databroker import db
+
+# from databroker import db
 
 matplotlib.use('qt4agg')
 from xpdan.simulation import build_pymongo_backed_broker
+from xpdsim.utils import pyfai_path
 
 def make_glbl(env_code=0):
     """ make a instance of Glbl class
@@ -60,11 +62,10 @@ def make_glbl(env_code=0):
     CONFIG_BASE = os.path.join(HOME_DIR, 'config_base')
     # copying pyFAI calib dict yml for test
     if int(env_code) == 1:
-        a = os.path.dirname(os.path.abspath(__file__))
-        b = a.split('glbl.py')[0]
         os.makedirs(CONFIG_BASE, exist_ok=True)
-        shutil.copyfile(os.path.join(b, 'tests/pyFAI_calib.yml'),
+        shutil.copyfile(pyfai_path,
                         os.path.join(CONFIG_BASE, 'pyFAI_calib.yml'))
+
     YAML_DIR = os.path.join(HOME_DIR, 'config_base', 'yml')
     BT_DIR = YAML_DIR
     SAMPLE_DIR = os.path.join(YAML_DIR, 'samples')
