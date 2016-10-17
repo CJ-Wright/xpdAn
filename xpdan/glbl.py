@@ -11,6 +11,7 @@ matplotlib.use('qt4agg')
 from xpdan.simulation import build_pymongo_backed_broker
 from xpdsim.utils import pyfai_path
 
+
 def make_glbl(env_code=0):
     """ make a instance of Glbl class
 
