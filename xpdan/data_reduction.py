@@ -140,6 +140,136 @@ class DataReduction:
 xpd_data_proc = DataReduction()
 ai = AzimuthalIntegrator()
 
+
+def image_stream(events, handler):
+    for e in events:
+        yield e[handler.image_field]
+
+
+def associate_dark(header, events, handler):
+    dark_uid = header.start.get(an_glbl.dark_field_key, None)
+    if dark_uid is None:
+        print("INFO: no dark frame is associated in this header, "
+              "subrraction will not be processed")
+        dark_img = None
+    else:
+        dark_search = {'uid': dark_uid}
+        dark_header = handler.exp_db(**dark_search)
+        dark_img = np.asarray(handler.exp_db.get_images(dark_header,
+                                                        handler.image_field)
+                              ).squeeze()
+    for e in events:
+        yield dark_img
+
+
+def subtract_gen(event_stream1, event_stream2):
+    for e1, e2 in zip(event_stream1, event_stream2):
+        if all([e1, e2]):
+            yield e1 - e2
+        else:
+            yield e1
+
+
+def pol_correct_gen(img_stream, ai):
+    for img in img_stream:
+        yield img / ai.polarization_cor
+
+
+def integrate(header, dark_sub_bool=True,
+                       polarization_factor=0.99,
+                       mask_setting='default', mask_dict=None,
+                       save_image=True, root_dir=None,
+                       config_dict=None, handler=xpd_data_proc,
+                       sum_idx_list=None,
+                       **kwargs):
+    # Prep integrator
+    root = header.start.get(handler.root_dir_name, None)
+    if root is not None:
+        root_dir = os.path.join(W_DIR, root)
+        os.makedirs(root_dir, exist_ok=True)
+    else:
+        root_dir = W_DIR
+
+    # config_dict
+    if config_dict is None:
+        config_dict = _load_config(header)  # default dict
+        if config_dict is None:  # still None
+            print("INFO: can't find calibration parameter under "
+                  "xpdUser/config_base/ or header metadata\n"
+                  "data reduction can not be perfomed.")
+            return
+    # setting up geometry
+    ai.setPyFAI(**config_dict)
+    npt = _npt_cal(config_dict)
+    events = handler.exp_db.get_images(header, fill=True)
+    l_events = list(tee(events, 2))
+    img_stream = image_stream(l_events.pop(), handler)
+    l_img_stream = list(tee(img_stream, 5))
+
+    # Dark logic
+    if dark_sub_bool:
+        # Associate dark image(s)
+        dark_imgs = associate_dark(header, l_img_stream.pop())
+        # Subtract dark image(s)
+        imgs = subtract_gen(l_img_stream.pop(), dark_imgs)
+
+    # Sum images
+    if sum_idx_list:
+        imgs = sum_images(imgs, sum_idx_list)
+
+    # Correct for polarization
+    if polarization_factor:
+        imgs = (img/ai.polarization(img.shape, polarization_factor) for img in imgs)
+
+    # Mask
+    mask = None
+    if mask_setting != 'auto':
+        if type(mask_setting) == np.ndarray and \
+                        mask_setting.dtype == np.dtype('bool'):
+            mask = mask_setting
+        elif type(mask_setting) == str and os.path.exists(mask_setting):
+            if os.path.splitext(mask_setting)[-1] == '.msk':
+                mask = read_fit2d_msk(mask_setting)
+            else:
+                mask = np.load(mask_setting)
+        elif mask_setting == 'default':
+            mask_md = header.start.get('mask', None)
+            if mask_md is None:
+                print("INFO: no mask associated or mask information was"
+                      " not set up correctly, no mask will be applied")
+                mask = None
+            else:
+
+                mask = decompress_mask(*mask_md)
+        elif mask_setting == 'None':
+            mask = None
+        mask_stream = (mask for i in imgs)
+    else:
+        mask_stream = (mask_img(img, ai, **an_glbl.mask_dict) for img in imgs)
+    # Warn for odd data
+    # Get filename
+    # Integrate
+    for img, mask in zip(imgs, mask_stream):
+        rvs = []
+        if mask is not None:
+            # make a copy, don't overwrite it
+            _mask = ~mask
+        else:
+            _mask = None
+        if save_image:
+
+        for unit, fn, l in zip(["q_nm^-1", "2th_deg"],
+                               [chi_fn_Q, chi_fn_2th]):
+            print("INFO: save chi file: {}".format(fn))
+
+            rv = ai.integrate1d(img, npt, filename=fn, mask=_mask,
+                                polarization_factor=polarization_factor,
+                                unit=unit, **kwargs)
+            rvs.append(rv)
+        yield rvs
+
+
+
 """ analysis function operates at header level """
 
 
