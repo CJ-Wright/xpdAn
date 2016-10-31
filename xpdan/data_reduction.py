@@ -196,7 +196,7 @@ def integrate(header, dark_sub_bool=True,
         if config_dict is None:  # still None
             print("INFO: can't find calibration parameter under "
                   "xpdUser/config_base/ or header metadata\n"
-                  "data reduction can not be perfomed.")
+                  "data reduction can not be performed.")
             return
     # setting up geometry
     ai.setPyFAI(**config_dict)
