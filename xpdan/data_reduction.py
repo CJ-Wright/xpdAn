@@ -263,7 +263,7 @@ def integrate(header, dark_sub_bool=True,
             print("INFO: save chi file: {}".format(fn))
 
             rv = ai.integrate1d(img, npt, filename=fn, mask=_mask,
-                                polarization_factor=polarization_factor,
+                                # polarization_factor=polarization_factor,
                                 unit=unit, **kwargs)
             rvs.append(rv)
         yield rvs
