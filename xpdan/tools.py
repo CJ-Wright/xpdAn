@@ -19,19 +19,8 @@ masking and automated polarization correction
 import numpy as np
 import scipy.stats as sts
 from matplotlib.path import Path
-from scipy.sparse import csr_matrix
-import numpy as np
-from pyFAI.geometry import Geometry
 from scipy.optimize import minimize_scalar
-import scipy.stats as sts
-import tifffile
-import matplotlib.pyplot as plt
-from xpdan.tools import *
-from skimage.morphology import erosion, binary_erosion
-import os
-import pyFAI
-
-
+from scipy.sparse import csr_matrix
 
 # Ideally we would pull these functions from scikit-beam
 try:
@@ -74,8 +63,9 @@ except ImportError:
             This is usually given by pyFAI.geometry.Geometry.rArray
         alpha: float or tuple or, 1darray
             The number of acceptable standard deviations.
-            If tuple then we use a linear distribution of alphas from alpha[0] to
-            alpha[1], if array then we use that as the distribution of alphas
+            If tuple then we use a linear distribution of alphas from alpha[0]
+            to alpha[1], if array then we use that as the distribution of
+            alphas
         bins: list
             The bin edges
         mask: 1darray
