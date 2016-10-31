@@ -1,3 +1,7 @@
+"""
+This module provides basic tools for x-ray scattering processing, including
+masking and automated polarization correction
+"""
 ##############################################################################
 #
 # xpdan            by Billinge Group
@@ -16,6 +20,18 @@ import numpy as np
 import scipy.stats as sts
 from matplotlib.path import Path
 from scipy.sparse import csr_matrix
+import numpy as np
+from pyFAI.geometry import Geometry
+from scipy.optimize import minimize_scalar
+import scipy.stats as sts
+import tifffile
+import matplotlib.pyplot as plt
+from xpdan.tools import *
+from skimage.morphology import erosion, binary_erosion
+import os
+import pyFAI
+
+
 
 # Ideally we would pull these functions from scikit-beam
 try:
@@ -240,3 +256,53 @@ def decompress_mask(data, indices, indptr, shape):
     cmask = csr_matrix(
         tuple([np.asarray(a) for a in [data, indices, indptr]]), shape=shape)
     return ~cmask.toarray().astype(bool)
+
+
+def auto_polarization(img, npt, geo, mask=None):
+    """Optimize the polarization by minimizing the azimuthal standard
+    deviation
+
+    Parameters
+    ----------
+    img: np.ndarray
+        The image
+    npt: int
+        The number of points used for integration
+    geo: pyFAI.geometry.Geometery instance or subclass
+        The pyFAI geometry class or subclass obtained from calibrating the
+        detector
+    mask: np.ndarray bool, optional
+        The boolian array which represents the mask, if none then build a mask
+        internally
+
+    Returns
+    -------
+    float:
+        The polarization factor
+    """
+    q = geo.qArray(img.shape)
+    q_range = np.linspace(np.min(q), np.max(q), npt)
+
+    pol = None
+    img3 = img.copy()
+    if pol:
+        img3 /= geo.polarization(img.shape, .95)
+    if not mask:
+        mask = mask_img(img3, geo, alpha=3, bs_width=None)
+
+    def opt(polarization_factor):
+        cimg = img.copy()
+        cimg /= geo.polarization(img.shape, polarization_factor)
+        if mask is None:
+            rq = q.ravel()
+            cimg = cimg.ravel()
+        else:
+            rq = q[mask]
+            cimg = cimg[mask]
+        std = sts.binned_statistic(rq, cimg, bins=q_range, statistic='std')[0]
+        std = np.nan_to_num(std)
+        return np.sum(std)
+
+    res = minimize_scalar(opt)
+    pol = res.x
+    return pol
