@@ -129,6 +129,14 @@ class DataReduction:
         f_name = '{}_{:04d}.tif'.format(f_name, ind)
         return f_name
 
+    def gen_file_name(self, event_steam):
+        """ priviate method operates on event level """
+        for event in event_steam:
+            f_name = self._feature_gen(event)
+            f_name = '_'.join([_timestampstr(event['time']), f_name])
+            f_name = '{}_{:04d}'.format(f_name, event['seq_num'])
+            yield f_name
+
     def construct_event_stream(self, header):
         for event in self.exp_db.get_events(header, fill=True):
             yield event['data'][self.image_field], \
@@ -176,14 +184,15 @@ def pol_correct_gen(img_stream, ai):
 
 
 def integrate(header, dark_sub_bool=True,
-                       polarization_factor=0.99,
-                       mask_setting='default', mask_dict=None,
-                       save_image=True, root_dir=None,
-                       config_dict=None, handler=xpd_data_proc,
-                       sum_idx_list=None,
-                       **kwargs):
-    # Prep integrator
+              polarization_factor=0.99,
+              mask_setting='default', mask_dict=None,
+              save_image=True,
+              config_dict=None, handler=xpd_data_proc,
+              sum_idx_list=None,
+              **kwargs):
+    # Setup Header level information
     root = header.start.get(handler.root_dir_name, None)
+    # Prep file locations
     if root is not None:
         root_dir = os.path.join(W_DIR, root)
         os.makedirs(root_dir, exist_ok=True)
@@ -198,31 +207,45 @@ def integrate(header, dark_sub_bool=True,
                   "xpdUser/config_base/ or header metadata\n"
                   "data reduction can not be performed.")
             return
+
     # setting up geometry
     ai.setPyFAI(**config_dict)
     npt = _npt_cal(config_dict)
-    events = handler.exp_db.get_images(header, fill=True)
+    internal_mdict = an_glbl.mask_dict
+    if mask_dict:
+        internal_mdict = mask_dict
+
+    # Create the event/image streams
+    events = handler.exp_db.get_events(header, fill=True)
     l_events = list(tee(events, 2))
     img_stream = image_stream(l_events.pop(), handler)
-    l_img_stream = list(tee(img_stream, 5))
+    l_img_stream = list(tee(img_stream, 2))
+    imgs = l_img_stream.pop()
+
+    f_names = handler.gen_file_name(l_events.pop())
 
     # Dark logic
     if dark_sub_bool:
         # Associate dark image(s)
         dark_imgs = associate_dark(header, l_img_stream.pop())
         # Subtract dark image(s)
-        imgs = subtract_gen(l_img_stream.pop(), dark_imgs)
+        imgs = subtract_gen(imgs, dark_imgs)
+        f_names = ('sub_' + f_name for f_name in f_names)
 
     # Sum images
     if sum_idx_list:
         imgs = sum_images(imgs, sum_idx_list)
+        f_names = ('sum_' + si + '_' + f_name for si, f_name in zip(
+            sum_idx_list, f_names))
 
     # Correct for polarization
     if polarization_factor:
-        imgs = (img/ai.polarization(img.shape, polarization_factor) for img in imgs)
+        imgs = (img / ai.polarization(img.shape, polarization_factor) for img
+                in imgs)
 
     # Mask
     mask = None
+    imgs, msk_imgs = tee(imgs, 2)
     if mask_setting != 'auto':
         if type(mask_setting) == np.ndarray and \
                         mask_setting.dtype == np.dtype('bool'):
@@ -243,13 +266,13 @@ def integrate(header, dark_sub_bool=True,
                 mask = decompress_mask(*mask_md)
         elif mask_setting == 'None':
             mask = None
-        mask_stream = (mask for i in imgs)
+        mask_stream = (mask for i in msk_imgs)
     else:
-        mask_stream = (mask_img(img, ai, **an_glbl.mask_dict) for img in imgs)
+        mask_stream = (mask_img(img, ai, **internal_mdict) for img in msk_imgs)
     # Warn for odd data
-    # Get filename
+
     # Integrate
-    for img, mask in zip(imgs, mask_stream):
+    for img, mask, f_name in zip(imgs, mask_stream, f_names):
         rvs = []
         if mask is not None:
             # make a copy, don't overwrite it
@@ -257,9 +280,17 @@ def integrate(header, dark_sub_bool=True,
         else:
             _mask = None
         if save_image:
-
-        for unit, fn, l in zip(["q_nm^-1", "2th_deg"],
-                               [chi_fn_Q, chi_fn_2th]):
+            w_name = f_name + '.tif'
+            tif.imsave(w_name, img)
+            if os.path.isfile(w_name):
+                print('image "%s" has been saved at "%s"' %
+                      (w_name, root_dir))
+            else:
+                print('Sorry, something went wrong with your tif saving')
+        f_name += '.chi'
+        q_fn = 'Q_' + f_name
+        tth_fn = '2th_' + f_name
+        for unit, fn in zip(["q_nm^-1", "2th_deg"], [q_fn, tth_fn]):
             print("INFO: save chi file: {}".format(fn))
 
             rv = ai.integrate1d(img, npt, filename=fn, mask=_mask,
@@ -267,7 +298,6 @@ def integrate(header, dark_sub_bool=True,
                                 unit=unit, **kwargs)
             rvs.append(rv)
         yield rvs
-
 
 
 """ analysis function operates at header level """
@@ -314,7 +344,7 @@ def _npt_cal(config_dict, total_shape=(2048, 2048)):
 def integrate_and_save(headers, dark_sub_bool=True,
                        polarization_factor=0.99,
                        mask_setting='default', mask_dict=None,
-                       save_image=True, root_dir=None,
+                       save_image=True,
                        config_dict=None, handler=xpd_data_proc,
                        sum_idx_list=None,
                        **kwargs):
@@ -682,16 +712,15 @@ def save_last_tiff(dark_sub_bool=True, max_count=None, dryrun=False,
               handler=handler)
 
 
-def sum_images(event_stream, idxs_list=None):
+def sum_images(img_stream, idxs_list='all'):
     """Sum images in a header
 
     Sum the images in a header according to the idxs_list
 
     Parameters
     ----------
-    event_stream: generator
-        The event stream to be summed. The image must be first, with the
-        event itself last
+    img_stream: generator
+        The image stream to be summed.
     idxs_list: list of lists and tuple or list or 'all', optional
         The list of lists and tuples which specify the images to be summed.
         If 'all', sum all the images in the run. If None, do nothing.
@@ -711,15 +740,15 @@ def sum_images(event_stream, idxs_list=None):
     >>> assert len(total_imgs) == 2
     """
     if idxs_list is None:
-        yield from event_stream
+        yield from img_stream
     if idxs_list is 'all':
         total_img = None
-        for img, *rest, event in event_stream:
+        for img in img_stream:
             if total_img is None:
                 total_img = img
             else:
                 total_img += img
-        yield chain([total_img], rest, ['all', event])
+        yield total_img
     elif idxs_list:
         # If we only have one list make it into a list of lists
         if not all(isinstance(e1, list) or isinstance(e1, tuple) for e1 in
@@ -727,25 +756,23 @@ def sum_images(event_stream, idxs_list=None):
             idxs_list = [idxs_list]
         # Each idx list gets its own copy of the event stream
         # This is to prevent one idx list from eating the generator
-        event_stream_copies = tee(event_stream, len(idxs_list))
-        for idxs, sub_event_stream in zip(idxs_list, event_stream_copies):
+        img_stream_copies = tee(img_stream, len(idxs_list))
+        for idxs, sub_image_stream in zip(idxs_list, img_stream_copies):
             total_img = None
             if isinstance(idxs, tuple):
                 for idx in range(idxs[0], idxs[1]):
-                    img, *rest, event = next(islice(sub_event_stream, idx))
+                    img, *rest, event = next(islice(sub_image_stream, idx))
                     if total_img is None:
                         total_img = img
                     else:
                         total_img += img
-                yield chain([total_img], rest,
-                            ['({}-{})'.format(*idxs), event])
+                yield total_img
             else:
                 total_img = None
                 for idx in idxs:
-                    img, *rest, event = next(islice(sub_event_stream, idx))
+                    img = next(islice(sub_image_stream, idx))
                     if total_img is None:
                         total_img = img
                     else:
                         total_img += img
-                yield chain([total_img], rest, ['[{}]'.format(
-                    ','.join(map(str, idxs))), event])
+                yield total_img
