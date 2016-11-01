@@ -163,9 +163,8 @@ def associate_dark(header, events, handler):
     else:
         dark_search = {'uid': dark_uid}
         dark_header = handler.exp_db(**dark_search)
-        dark_img = np.asarray(handler.exp_db.get_images(dark_header,
-                                                        handler.image_field)
-                              ).squeeze()
+        dark_img = handler.exp_db.get_images(dark_header,
+                                             handler.image_field)[0]
     for e in events:
         yield dark_img
 
@@ -181,6 +180,32 @@ def subtract_gen(event_stream1, event_stream2):
 def pol_correct_gen(img_stream, ai):
     for img in img_stream:
         yield img / ai.polarization_cor
+
+
+def mask_logic(msk_imgs, mask_setting, internal_mdict, header, ai=None):
+    mask = None
+    if mask_setting != 'auto':
+        if type(mask_setting) == np.ndarray and \
+                        mask_setting.dtype == np.dtype('bool'):
+            mask = mask_setting
+        elif type(mask_setting) == str and os.path.exists(mask_setting):
+            if os.path.splitext(mask_setting)[-1] == '.msk':
+                mask = read_fit2d_msk(mask_setting)
+            else:
+                mask = np.load(mask_setting)
+        elif mask_setting == 'default':
+            mask_md = header.start.get('mask', None)
+            if mask_md is None:
+                print("INFO: no mask associated or mask information was"
+                      " not set up correctly, no mask will be applied")
+                mask = None
+            else:
+                mask = decompress_mask(*mask_md)
+        elif mask_setting == 'None':
+            mask = None
+        yield from (mask for i in msk_imgs)
+    else:
+        yield from (mask_img(img, ai, **internal_mdict) for img in msk_imgs)
 
 
 def integrate(header, dark_sub_bool=True,
@@ -218,6 +243,7 @@ def integrate(header, dark_sub_bool=True,
     # Create the event/image streams
     events = handler.exp_db.get_events(header, fill=True)
     l_events = list(tee(events, 2))
+    # Use this in the case of async events
     img_stream = image_stream(l_events.pop(), handler)
     l_img_stream = list(tee(img_stream, 2))
     imgs = l_img_stream.pop()
@@ -244,31 +270,9 @@ def integrate(header, dark_sub_bool=True,
                 in imgs)
 
     # Mask
-    mask = None
     imgs, msk_imgs = tee(imgs, 2)
-    if mask_setting != 'auto':
-        if type(mask_setting) == np.ndarray and \
-                        mask_setting.dtype == np.dtype('bool'):
-            mask = mask_setting
-        elif type(mask_setting) == str and os.path.exists(mask_setting):
-            if os.path.splitext(mask_setting)[-1] == '.msk':
-                mask = read_fit2d_msk(mask_setting)
-            else:
-                mask = np.load(mask_setting)
-        elif mask_setting == 'default':
-            mask_md = header.start.get('mask', None)
-            if mask_md is None:
-                print("INFO: no mask associated or mask information was"
-                      " not set up correctly, no mask will be applied")
-                mask = None
-            else:
-
-                mask = decompress_mask(*mask_md)
-        elif mask_setting == 'None':
-            mask = None
-        mask_stream = (mask for i in msk_imgs)
-    else:
-        mask_stream = (mask_img(img, ai, **internal_mdict) for img in msk_imgs)
+    mask_stream = mask_logic(msk_imgs, mask_setting, internal_mdict, header,
+                             ai=ai)
     # Warn for odd data
 
     # Integrate

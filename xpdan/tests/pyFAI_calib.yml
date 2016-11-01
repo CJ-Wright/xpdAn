@@ -11,7 +11,7 @@ centerY: !!python/object/apply:numpy.core.multiarray.scalar
   state: !!python/tuple [3, <, null, null, null, -1, -1, 0]
 - !!binary |
   ru+EJ0EKkEA=
-detector: Perkin detector
+detector: Perkin
 directDist: !!python/object/apply:numpy.core.multiarray.scalar
 - !!python/object/apply:numpy.dtype
   args: [f8, 0, 1]

@@ -148,11 +148,6 @@ def mask_img(img, geo,
         are masked out.
 
     """
-
-    r = geo.rArray(img.shape)
-    pixel_size = [getattr(geo, a) for a in ['pixel1', 'pixel2']]
-    rres = np.hypot(*pixel_size)
-    rbins = np.arange(np.min(r) - rres / 2., np.max(r) + rres / 2., rres)
     if tmsk is None:
         working_mask = np.ones(img.shape).astype(bool)
     else:
@@ -184,6 +179,10 @@ def mask_img(img, geo,
         working_mask *= ~grid.reshape((ny, nx))
 
     if alpha:
+        r = geo.rArray(img.shape)
+        pixel_size = [getattr(geo, a) for a in ['pixel1', 'pixel2']]
+        rres = np.hypot(*pixel_size)
+        rbins = np.arange(np.min(r) - rres / 2., np.max(r) + rres / 2., rres)
         working_mask *= binned_outlier(img, r, alpha, rbins, mask=working_mask)
     return working_mask
 

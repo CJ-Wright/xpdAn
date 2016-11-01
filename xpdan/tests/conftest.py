@@ -25,8 +25,6 @@ from xpdan.io import fit2d_save
 from xpdan.simulation import build_pymongo_backed_broker
 from xpdan.tests.utils import insert_imgs
 
-if sys.version_info >= (3, 0):
-    pass
 
 
 @pytest.fixture(scope='module')
