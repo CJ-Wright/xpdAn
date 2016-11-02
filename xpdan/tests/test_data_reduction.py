@@ -12,7 +12,7 @@
 # See LICENSE.txt for license information.
 #
 ##############################################################################
-from xpdan.data_reduction import image_stream, associate_dark, subtract_gen, \
+from xpdan.data_reduction import associate_dark, subtract_gen, \
     pol_correct_gen, mask_logic, an_glbl, decompress_mask, mask_img,\
     _load_config, read_fit2d_msk
 from itertools import tee, product

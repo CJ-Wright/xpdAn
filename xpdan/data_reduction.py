@@ -172,6 +172,11 @@ def subtract_gen(event_stream1, event_stream2):
             yield e1
 
 
+def pol_correct_gen(imgs, polarization_factor):
+    yield from (img / ai.polarization(img.shape, polarization_factor) for
+                    img in imgs)
+
+
 def mask_logic(msk_imgs, mask_setting, internal_mdict, header, ai=None):
     mask = None
     if mask_setting != 'auto':
@@ -294,8 +299,7 @@ def integrate_and_save(headers, dark_sub_bool=True,
 
         # Correct for polarization
         if polarization_factor:
-            imgs = (img / ai.polarization(img.shape, polarization_factor) for
-                    img in imgs)
+            imgs = pol_correct_gen(imgs, polarization_factor)
 
         # Mask
         imgs, msk_imgs = tee(imgs, 2)
