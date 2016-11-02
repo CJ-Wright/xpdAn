@@ -95,12 +95,12 @@ class DataReduction:
                   "subrraction will not be processed")
             return None, header.start.time
         else:
-            dark_search = {'group': 'XPD', 'uid': dark_uid}
-            dark_header = self.exp_db(**dark_search)
-            dark_img = np.asarray(self.exp_db.get_images(dark_header,
-                                                         self.image_field)
-                                  ).squeeze()
-        return dark_img, dark_header[0].start.time
+            dark_search = {'uid': dark_uid}
+            dark_header = self.exp_db(**dark_search)[0]
+            dark_img = np.asarray(
+                self.exp_db.get_images(dark_header, self.image_field)[0]
+            ).squeeze()
+        return dark_img, dark_header.start.time
 
     def _dark_sub(self, event, dark_img):
         """ priviate method operates on event level """
@@ -162,7 +162,7 @@ def associate_dark(header, events, handler):
         dark_img = None
     else:
         dark_search = {'uid': dark_uid}
-        dark_header = handler.exp_db(**dark_search)
+        dark_header = handler.exp_db(**dark_search)[0]
         dark_img = handler.exp_db.get_images(dark_header,
                                              handler.image_field)[0]
     for e in events:
@@ -208,110 +208,12 @@ def mask_logic(msk_imgs, mask_setting, internal_mdict, header, ai=None):
         yield from (mask_img(img, ai, **internal_mdict) for img in msk_imgs)
 
 
-def integrate(header, dark_sub_bool=True,
-              polarization_factor=0.99,
-              mask_setting='default', mask_dict=None,
-              save_image=True,
-              config_dict=None, handler=xpd_data_proc,
-              sum_idx_list=None,
-              **kwargs):
-    # Setup Header level information
-    root = header.start.get(handler.root_dir_name, None)
-    # Prep file locations
-    if root is not None:
-        root_dir = os.path.join(W_DIR, root)
-        os.makedirs(root_dir, exist_ok=True)
-    else:
-        root_dir = W_DIR
-
-    # config_dict
-    if config_dict is None:
-        config_dict = _load_config(header)  # default dict
-        if config_dict is None:  # still None
-            print("INFO: can't find calibration parameter under "
-                  "xpdUser/config_base/ or header metadata\n"
-                  "data reduction can not be performed.")
-            return
-
-    # setting up geometry
-    ai.setPyFAI(**config_dict)
-    npt = _npt_cal(config_dict)
-    internal_mdict = an_glbl.mask_dict
-    if mask_dict:
-        internal_mdict = mask_dict
-
-    # Create the event/image streams
-    events = handler.exp_db.get_events(header, fill=True)
-    l_events = list(tee(events, 2))
-    # Use this in the case of async events
-    img_stream = image_stream(l_events.pop(), handler)
-    l_img_stream = list(tee(img_stream, 2))
-    imgs = l_img_stream.pop()
-
-    f_names = handler.gen_file_name(l_events.pop())
-
-    # Dark logic
-    if dark_sub_bool:
-        # Associate dark image(s)
-        dark_imgs = associate_dark(header, l_img_stream.pop())
-        # Subtract dark image(s)
-        imgs = subtract_gen(imgs, dark_imgs)
-        f_names = ('sub_' + f_name for f_name in f_names)
-
-    # Sum images
-    if sum_idx_list:
-        imgs = sum_images(imgs, sum_idx_list)
-        f_names = ('sum_' + si + '_' + f_name for si, f_name in zip(
-            sum_idx_list, f_names))
-
-    # Correct for polarization
-    if polarization_factor:
-        imgs = (img / ai.polarization(img.shape, polarization_factor) for img
-                in imgs)
-
-    # Mask
-    imgs, msk_imgs = tee(imgs, 2)
-    mask_stream = mask_logic(msk_imgs, mask_setting, internal_mdict, header,
-                             ai=ai)
-    # Warn for odd data
-
-    # Integrate
-    for img, mask, f_name in zip(imgs, mask_stream, f_names):
-        rvs = []
-        if mask is not None:
-            # make a copy, don't overwrite it
-            _mask = ~mask
-        else:
-            _mask = None
-        if save_image:
-            w_name = f_name + '.tif'
-            tif.imsave(w_name, img)
-            if os.path.isfile(w_name):
-                print('image "%s" has been saved at "%s"' %
-                      (w_name, root_dir))
-            else:
-                print('Sorry, something went wrong with your tif saving')
-        f_name += '.chi'
-        q_fn = 'Q_' + f_name
-        tth_fn = '2th_' + f_name
-        for unit, fn in zip(["q_nm^-1", "2th_deg"], [q_fn, tth_fn]):
-            print("INFO: save chi file: {}".format(fn))
-
-            rv = ai.integrate1d(img, npt, filename=fn, mask=_mask,
-                                # polarization_factor=polarization_factor,
-                                unit=unit, **kwargs)
-            rvs.append(rv)
-        yield rvs
-
-
 """ analysis function operates at header level """
 
 
 def _prepare_header_list(headers):
     if not isinstance(headers, list):
-        # still do it in two steps, easier to read
-        header_list = list()
-        header_list.append(headers)
+        header_list = [headers]
     else:
         header_list = headers
     return header_list
@@ -347,77 +249,16 @@ def _npt_cal(config_dict, total_shape=(2048, 2048)):
 
 def integrate_and_save(headers, dark_sub_bool=True,
                        polarization_factor=0.99,
-                       mask_setting='default', mask_dict=None,
+                       mask_setting='default', mask_dict=an_glbl.mask_dict,
                        save_image=True,
                        config_dict=None, handler=xpd_data_proc,
-                       sum_idx_list=None,
+                       sum_idx_list='all',
                        **kwargs):
-    """ integrate and save dark subtracted images for given list of headers
-
-    Parameters
-    ----------
-    headers : list
-        a list of databroker.header objects
-    dark_sub_bool : bool, optional
-        option to turn on/off dark subtraction functionality
-    polarization_factor : float, optional
-        polarization correction factor, ranged from -1(vertical) to +1
-        (horizontal). default is 0.99. set to None for no
-        correction.
-    mask_setting : str, ndarray optional
-        string for mask option. Valid options are 'default', 'auto' and
-        'None'. If 'default', mask included in metadata will be
-        used. If 'auto', a new mask would be generated from current
-        image. If 'None', no mask would be applied. If a ndarray of bools use
-        as mask. Predefined option is 'default'.
-    mask_dict : dict, optional
-        dictionary stores options for automasking functionality.
-        default is defined by an_glbl.auto_mask_dict.
-        Please refer to documentation for more details
-    save_image : bool, optional
-        option to save dark subtracted images. images will be 
-        saved to the same directory of chi files. default is True.
-    root_dir : str, optional
-        path of chi files that are going to be saved. default is 
-        the same as your image file
-    config_dict : dict, optional
-        dictionary stores integration parameters of pyFAI azimuthal 
-        integrator. default is the most recent parameters saved in 
-        xpdUser/conifg_base
-    handler : instance of class, optional
-        instance of class that handles data process, don't change it 
-        unless needed.
-    sum_idx_list: list of lists and tuple or list or 'all', optional
-        The list of lists and tuples which specify the images to be summed.
-        If 'all', sum all the images in the run. If None, do nothing.
-        Defaults to None.
-    kwargs :
-        addtional keywords to overwrite integration behavior. Please
-        refer to pyFAI.azimuthalIntegrator.AzimuthalIntegrator for
-        more information
-
-    Note
-    ----
-    complete docstring of masking functionality could be find in
-    ``mask_img``
-
-    customized mask can be assign to by kwargs (It must be a ndarray)
-    >>> integrate_and_save(mask_setting=my_mask)
-
-    See also
-    --------
-    xpdan.tools.mask_img
-    pyFAI.azimuthalIntegrator.AzimuthalIntegrator
-    """
-    # normalize list
-    header_list = _prepare_header_list(headers)
-
-    total_rv_list_Q = []
-    total_rv_list_2theta = []
-
-    # iterate over header
-    for header in header_list:
+    headers = _prepare_header_list(headers)
+    for header in headers:
+        # Setup Header level information
         root = header.start.get(handler.root_dir_name, None)
+        # Prep file locations
         if root is not None:
             root_dir = os.path.join(W_DIR, root)
             os.makedirs(root_dir, exist_ok=True)
@@ -430,184 +271,80 @@ def integrate_and_save(headers, dark_sub_bool=True,
             if config_dict is None:  # still None
                 print("INFO: can't find calibration parameter under "
                       "xpdUser/config_base/ or header metadata\n"
-                      "data reduction can not be perfomed.")
+                      "data reduction can not be performed.")
                 return
 
         # setting up geometry
         ai.setPyFAI(**config_dict)
         npt = _npt_cal(config_dict)
 
-        header_rv_list_Q = []
-        header_rv_list_2theta = []
+        # Create the event/image streams
+        events = handler.exp_db.get_events(header, fill=True)
+        l_events = list(tee(events, 2))
+        # Use this in the case of async events
+        img_stream = handler.exp_db.get_images(header)
+        l_img_stream = list(tee(img_stream, 2))
+        imgs = l_img_stream.pop()
 
-        # dark logic
+        f_names = handler.gen_file_name(l_events.pop())
+
+        # Dark logic
         if dark_sub_bool:
-            event_stream = handler.dark_sub(header)
-        else:
-            event_stream = handler.construct_event_stream(header)
-        for img, event_timestamp, ind, *rest, event in sum_images(
-                event_stream, sum_idx_list):
+            # Associate dark image(s)
+            dark_imgs = associate_dark(header, l_img_stream.pop())
+            # Subtract dark image(s)
+            imgs = subtract_gen(imgs, dark_imgs)
+            f_names = ('sub_' + f_name for f_name in f_names)
 
-            f_name = handler._file_name(event, event_timestamp, ind)
-            if dark_sub_bool:
-                f_name = 'sub_' + f_name
-            if sum_idx_list:
-                f_name = 'sum_' + rest[-1] + f_name
+        # Sum images
+        if sum_idx_list:
+            imgs = sum_images(imgs, sum_idx_list)
+            f_names = ('sum_' + si + '_' + f_name for si, f_name in zip(
+                sum_idx_list, f_names))
 
-            # copy tiff_name here
-            tiff_fn = f_name
+        # Correct for polarization
+        if polarization_factor:
+            imgs = (img / ai.polarization(img.shape, polarization_factor) for
+                    img
+                    in imgs)
 
-            # masking logic
-            # workflow for xpdAcq v0.5.1 release, will change later
-            mask = None
-            if (type(mask_setting) == np.ndarray and
-                        mask_setting.dtype == np.dtype('bool')):
-                mask = mask_setting
-            elif type(mask_setting) == str and os.path.exists(mask_setting):
-                if os.path.splitext(mask_setting)[-1] == '.msk':
-                    mask = read_fit2d_msk(mask_setting)
-                else:
-                    mask = np.load(mask_setting)
-            elif mask_setting == 'default':
-                mask_md = header.start.get('mask', None)
-                if mask_md is None:
-                    print("INFO: no mask associated or mask information was"
-                          " not set up correctly, no mask will be applied")
-                    mask = None
-                else:
-                    # unpack here
-                    data, ind, indptr = mask_md
-                    print("INFO: pull off mask associate with your image: {}"
-                          .format(f_name))
-                    mask = decompress_mask(data, ind, indptr, img.shape)
-            elif mask_setting == 'auto':
-                mask = mask_img(img, ai, **an_glbl.mask_dict)
-            elif mask_setting == 'None':
-                mask = None
+        # Mask
+        imgs, msk_imgs = tee(imgs, 2)
+        mask_stream = mask_logic(msk_imgs, mask_setting, mask_dict, header,
+                                 ai=ai)
+        # Warn for odd data
 
-            mask_fn = os.path.splitext(f_name)[0]  # remove ext
-            if mask_setting is not None:
-                print("INFO: mask file '{}' is saved at {}"
-                      .format(mask_fn, root_dir))
-                np.save(os.path.join(root_dir, mask_fn),
-                        mask_setting)  # default is .npy from np.save
-
-            # integration logic
-            stem, ext = os.path.splitext(f_name)
-            chi_name_Q = 'Q_' + stem + '.chi'  # q_nm^-1
-            chi_name_2th = '2th_' + stem + '.chi'  # deg^-1
-            print("INFO: integrating image: {}".format(f_name))
-            # Q-integration
-            chi_fn_Q = os.path.join(root_dir, chi_name_Q)
-            chi_fn_2th = os.path.join(root_dir, chi_name_2th)
-            for unit, fn, l in zip(["q_nm^-1", "2th_deg"],
-                                   [chi_fn_Q, chi_fn_2th],
-                                   [header_rv_list_Q, header_rv_list_2theta]):
-                print("INFO: save chi file: {}".format(fn))
-                if mask is not None:
-                    # make a copy, don't overwrite it
-                    _mask = ~mask
-                else:
-                    _mask = None
-
-                rv = ai.integrate1d(img, npt, filename=fn, mask=_mask,
-                                    polarization_factor=polarization_factor,
-                                    unit=unit, **kwargs)
-                l.append(rv)
-
-            # save image logic
-            w_name = os.path.join(root_dir, tiff_fn)
+        # Integrate
+        for img, mask, f_name in zip(imgs, mask_stream, f_names):
+            rvs = []
+            if mask is not None:
+                # make a copy, don't overwrite it
+                _mask = ~mask
+            else:
+                _mask = None
             if save_image:
+                w_name = f_name + '.tif'
                 tif.imsave(w_name, img)
                 if os.path.isfile(w_name):
                     print('image "%s" has been saved at "%s"' %
-                          (tiff_fn, root_dir))
+                          (w_name, root_dir))
                 else:
                     print('Sorry, something went wrong with your tif saving')
-                    return
+            f_name += '.chi'
+            q_fn = 'Q_' + f_name
+            tth_fn = '2th_' + f_name
+            for unit, fn in zip(["q_nm^-1", "2th_deg"], [q_fn, tth_fn]):
+                print("INFO: save chi file: {}".format(fn))
 
-        # save run_start
-        stem, ext = os.path.splitext(w_name)
-        config_name = w_name.replace(ext, '.yml')
-        with open(config_name, 'w') as f:
-            yaml.dump(header.start, f)  # save all md in start
-
-        # each header generate  a list of rv
-        total_rv_list_Q.append(header_rv_list_Q)
-        total_rv_list_2theta.append(header_rv_list_2theta)
-
-    print("INFO: chi/image files are saved at {}".format(root_dir))
-    return total_rv_list_Q, total_rv_list_2theta
+                rv = ai.integrate1d(img, npt, filename=fn, mask=_mask,
+                                    # polarization_factor=polarization_factor,
+                                    unit=unit, **kwargs)
+                rvs.append(rv)
+            yield rvs
 
 
-def integrate_and_save_last(dark_sub_bool=True, polarization_factor=0.99,
-                            mask_setting='default', mask_dict=None,
-                            save_image=True, root_dir=None,
-                            config_dict=None, handler=xpd_data_proc,
-                            sum_idx_list=None,
-                            **kwargs):
-    """ integrate and save dark subtracted images for given list of headers
-
-    Parameters
-    ----------
-    dark_sub_bool : bool, optional
-        option to turn on/off dark subtraction functionality
-    polarization_factor : float, optional
-        polarization correction factor, ranged from -1(vertical) to 
-        +1 (horizontal). default is 0.99. set to None for no
-        correction.
-    mask_setting : str, ndarray optional
-        string for mask option. Valid options are 'default', 'auto' and
-        'None'. If 'default', mask included in metadata will be
-        used. If 'auto', a new mask would be generated from current
-        image. If 'None', no mask would be applied. If a ndarray of bools use
-        as mask. Predefined option is 'default'.
-    mask_dict : dict, optional
-        dictionary stores options for automasking functionality. 
-        default is defined by an_glbl.auto_mask_dict. 
-        Please refer to documentation for more details.
-    save_image : bool, optional
-        option to save dark subtracted images. images will be 
-        saved to the same directory of chi files. default is True.
-    root_dir : str, optional
-        path of chi files that are going to be saved. default is 
-        xpdUser/userAnalysis/
-    config_dict : dict, optional
-        dictionary stores integration parameters of pyFAI azimuthal 
-        integrator. default is the most recent parameters saved in 
-        xpdUser/conifg_base
-    handler : instance of class, optional
-        instance of class that handles data process, don't change it 
-        unless needed.
-    sum_idx_list: list of lists and tuple or list or 'all', optional
-        The list of lists and tuples which specify the images to be summed.
-        If 'all', sum all the images in the run. If None, do nothing.
-        Defaults to None.
-    kwargs :
-        addtional keywords to overwrite integration behavior. Please
-        refer to pyFAI.azimuthalIntegrator.AzimuthalIntegrator for
-        more information
-
-    Note
-    ----
-    complete docstring of masking functionality could be find in
-    ``mask_img``
-
-    customized mask can be assign to by kwargs (It must be a ndarray)
-    >>> integrate_and_save_last(mask=my_mask)
-
-    See also
-    --------
-    xpdan.tools.mask_img
-    pyFAI.azimuthalIntegrator.AzimuthalIntegrator
-    """
-    integrate_and_save(handler.exp_db[-1], dark_sub_bool=dark_sub_bool,
-                       polarization_factor=polarization_factor,
-                       mask_setting=mask_setting, mask_dict=mask_dict,
-                       save_image=save_image,
-                       root_dir=root_dir,
-                       config_dict=config_dict,
-                       handler=handler, sum_idx_list=sum_idx_list, **kwargs)
+def integrate_and_save_last(**kwargs):
+    yield from integrate_and_save(kwargs['handler'].exp_db[-1], **kwargs)
 
 
 def save_tiff(headers, dark_sub_bool=True, max_count=None, dryrun=False,
