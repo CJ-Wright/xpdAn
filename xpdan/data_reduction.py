@@ -174,7 +174,7 @@ def subtract_gen(event_stream1, event_stream2):
 
 def pol_correct_gen(imgs, ai, polarization_factor):
     yield from (img / ai.polarization(img.shape, polarization_factor) for
-                    img in imgs)
+                img in imgs)
 
 
 def mask_logic(msk_imgs, mask_setting, internal_mdict, header, ai=None):
@@ -201,7 +201,8 @@ def mask_logic(msk_imgs, mask_setting, internal_mdict, header, ai=None):
         yield from (mask for i in msk_imgs)
     else:
         if internal_mdict:
-            yield from (mask_img(img, ai, **internal_mdict) for img in msk_imgs)
+            yield from (mask_img(img, ai, **internal_mdict) for img in
+                        msk_imgs)
         else:
             yield from (mask_img(img, ai) for img in msk_imgs)
 
@@ -376,7 +377,7 @@ def integrate_and_save(headers, dark_sub_bool=True,
             else:
                 _mask = None
             if save_image:
-                w_name = f_name + '.tif'
+                w_name = os.path.join(root_dir, f_name + '.tif')
                 tif.imsave(w_name, img)
                 if os.path.isfile(w_name):
                     print('image "%s" has been saved at "%s"' %
@@ -387,8 +388,8 @@ def integrate_and_save(headers, dark_sub_bool=True,
             q_fn = 'Q_' + f_name
             tth_fn = '2th_' + f_name
             for unit, fn in zip(["q_nm^-1", "2th_deg"], [q_fn, tth_fn]):
+                fn = os.path.join(root_dir, fn)
                 print("INFO: save chi file: {}".format(fn))
-
                 rv = ai.integrate1d(img, npt, filename=fn, mask=_mask,
                                     # polarization_factor=polarization_factor,
                                     unit=unit, **kwargs)
@@ -596,19 +597,20 @@ def sum_images(img_stream, idxs_list='all'):
             else:
                 total_img += img
         yield total_img
-    elif all(isinstance(i, int) for i in idxs_list): # idxs_iist = [1, 2, 3]
+    elif all(isinstance(i, int) for i in idxs_list):  # idxs_iist = [1, 2, 3]
         total_img = None
         for idx in idxs_list:
             img = next(islice(img_stream, idx))
             if total_img is None:
-                total_img = img
+                total_img = img.copy()
             else:
                 total_img += img
         yield total_img
-    elif isinstance(idxs_list, tuple): # idxs_list = (1, 5)
+    elif isinstance(idxs_list, tuple):  # idxs_list = (1, 5)
         yield from sum_images(img_stream, list(range(idxs_list[0],
                                                      idxs_list[1])))
-    else: # idxs_list = [[1, 2, 3], (3, 5), ...]
+    else:  # idxs_list = [[1, 2, 3], (3, 5), ...]
         sub_image_streams = list(tee(img_stream, len(idxs_list)))
         for sub_idxs in idxs_list:
+            print(sub_idxs)
             yield from sum_images(sub_image_streams.pop(), sub_idxs)

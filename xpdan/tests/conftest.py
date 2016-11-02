@@ -70,6 +70,9 @@ def exp_db(db, mk_glbl, img_size):
     mds._connection.drop_database(mds.config['database'])
     print("DROPPING FS")
     fs._connection.drop_database(fs.config['database'])
+    if os.path.exists(glbl.base):
+        print('removing {}'.format(glbl.base))
+        shutil.rmtree(glbl.base)
 
 
 @pytest.fixture(scope='module')

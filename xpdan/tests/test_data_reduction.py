@@ -27,7 +27,7 @@ from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 
 ai = AzimuthalIntegrator()
 sum_idx_values = (
-    'all', [1, 2, 3], (1, 3), [[1, 2, 3], [2, 3]], [[1, 3], (1, 3)])
+    'all', [1, 2, 3], (1, 3), [[1, 2, 3], [1, 2, 3]], [[1, 3], (1, 3)])
 
 integrate_params = ['dark_sub_bool',
                     'polarization_factor',
@@ -75,6 +75,22 @@ for vs in save_tiff_kwarg_values:
     d = {k: v for (k, v) in zip(save_tiff_params, vs)}
     save_tiff_kwargs.append((d, False))
 
+
+def sum_list(imgs, idxs):
+    if all(isinstance(i, int) for i in idxs):  # idxs_iist = [1, 2, 3]
+        total_img = None
+        for idx in idxs:
+            img = imgs[idx]
+            if total_img is None:
+                total_img = img.copy()
+            else:
+                total_img += img
+        yield total_img
+    elif isinstance(idxs, tuple):  # idxs = (1, 5)
+        yield from sum_list(imgs, list(range(idxs[0], idxs[1])))
+    else:  # idxs = [[1, 2, 3], (3, 5), ...]
+        for sub_idxs in idxs:
+            yield from sum_list(imgs, sub_idxs)
 
 def test_image_stream(exp_db, handler):
     events = exp_db.get_events(exp_db[-1], fill=True)
@@ -164,29 +180,11 @@ def test_subtract_gen(tf):
 def test_sum_logic(exp_db, handler, idxs):
     hdr = exp_db[-1]
     image_stream = handler.exp_db.get_images(hdr, handler.image_field)
-    sub_event_streams = list(tee(image_stream, 3))
+    sub_event_streams = list(tee(image_stream, 2))
     image_list = list(sub_event_streams.pop())
-    a = sum_images(sub_event_streams[0], idxs)
-
-    def sum_list(imgs, idxs):
-        if all(isinstance(i, int) for i in idxs):  # idxs_iist = [1, 2, 3]
-            total_img = None
-            for idx in idxs:
-                img = imgs[idx]
-                if total_img is None:
-                    total_img = img
-                else:
-                    total_img += img
-            yield total_img
-        elif isinstance(idxs, tuple):  # idxs = (1, 5)
-            yield from sum_images(imgs, list(range(idxs[0], idxs[1])))
-        else:  # idxs = [[1, 2, 3], (3, 5), ...]
-            sub_image_streams = list(tee(imgs, len(idxs)))
-            for sub_idxs in idxs:
-                yield from sum_images(sub_image_streams.pop(), sub_idxs)
-
+    a = sum_images(sub_event_streams.pop(), idxs)
     if idxs is 'all':
         assert_array_equal(sum(image_list), next(a))
     else:
-        for i, j in zip(a, sum_list(image_list, idxs)):
+        for k, (i, j) in enumerate(zip(a, sum_list(image_list, idxs))):
             assert_array_equal(i, j)
