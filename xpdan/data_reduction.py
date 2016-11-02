@@ -200,7 +200,10 @@ def mask_logic(msk_imgs, mask_setting, internal_mdict, header, ai=None):
             mask = None
         yield from (mask for i in msk_imgs)
     else:
-        yield from (mask_img(img, ai, **internal_mdict) for img in msk_imgs)
+        if internal_mdict:
+            yield from (mask_img(img, ai, **internal_mdict) for img in msk_imgs)
+        else:
+            yield from (mask_img(img, ai) for img in msk_imgs)
 
 
 """ analysis function operates at header level """
