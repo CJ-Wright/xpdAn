@@ -166,13 +166,13 @@ def associate_dark(header, events, handler):
 
 def subtract_gen(event_stream1, event_stream2):
     for e1, e2 in zip(event_stream1, event_stream2):
-        if all([e1, e2]):
+        if all([e1 is not None, e2 is not None]):
             yield e1 - e2
         else:
             yield e1
 
 
-def pol_correct_gen(imgs, polarization_factor):
+def pol_correct_gen(imgs, ai, polarization_factor):
     yield from (img / ai.polarization(img.shape, polarization_factor) for
                     img in imgs)
 
@@ -249,6 +249,63 @@ def integrate_and_save(headers, dark_sub_bool=True,
                        config_dict=None, handler=xpd_data_proc,
                        sum_idx_list='all',
                        **kwargs):
+    """ integrate and save dark subtracted images for given list of headers
+
+       Parameters
+       ----------
+       headers : list
+           a list of databroker.header objects
+       dark_sub_bool : bool, optional
+           option to turn on/off dark subtraction functionality
+       polarization_factor : float, optional
+           polarization correction factor, ranged from -1(vertical) to +1
+           (horizontal). default is 0.99. set to None for no
+           correction.
+       mask_setting : str, ndarray optional
+           string for mask option. Valid options are 'default', 'auto' and
+           'None'. If 'default', mask included in metadata will be
+           used. If 'auto', a new mask would be generated from current
+           image. If 'None', no mask would be applied. If a ndarray of bools use
+           as mask. Predefined option is 'default'.
+       mask_dict : dict, optional
+           dictionary stores options for automasking functionality.
+           default is defined by an_glbl.auto_mask_dict.
+           Please refer to documentation for more details
+       save_image : bool, optional
+           option to save dark subtracted images. images will be
+           saved to the same directory of chi files. default is True.
+       root_dir : str, optional
+           path of chi files that are going to be saved. default is
+           the same as your image file
+       config_dict : dict, optional
+           dictionary stores integration parameters of pyFAI azimuthal
+           integrator. default is the most recent parameters saved in
+           xpdUser/conifg_base
+       handler : instance of class, optional
+           instance of class that handles data process, don't change it
+           unless needed.
+       sum_idx_list: list of lists and tuple or list or 'all', optional
+           The list of lists and tuples which specify the images to be summed.
+           If 'all', sum all the images in the run. If None, do nothing.
+           Defaults to None.
+       kwargs :
+           addtional keywords to overwrite integration behavior. Please
+           refer to pyFAI.azimuthalIntegrator.AzimuthalIntegrator for
+           more information
+
+       Note
+       ----
+       complete docstring of masking functionality could be find in
+       ``mask_img``
+
+       customized mask can be assign to by kwargs (It must be a ndarray)
+       >>> integrate_and_save(mask_setting=my_mask)
+
+       See also
+       --------
+       xpdan.tools.mask_img
+       pyFAI.azimuthalIntegrator.AzimuthalIntegrator
+       """
     headers = _prepare_header_list(headers)
     for header in headers:
         # Setup Header level information
@@ -277,7 +334,7 @@ def integrate_and_save(headers, dark_sub_bool=True,
         events = handler.exp_db.get_events(header, fill=True)
         l_events = list(tee(events, 2))
         # Use this in the case of async events
-        img_stream = handler.exp_db.get_images(header)
+        img_stream = handler.exp_db.get_images(header, handler.image_field)
         l_img_stream = list(tee(img_stream, 2))
         imgs = l_img_stream.pop()
 
@@ -286,7 +343,7 @@ def integrate_and_save(headers, dark_sub_bool=True,
         # Dark logic
         if dark_sub_bool:
             # Associate dark image(s)
-            dark_imgs = associate_dark(header, l_img_stream.pop())
+            dark_imgs = associate_dark(header, l_img_stream.pop(), handler)
             # Subtract dark image(s)
             imgs = subtract_gen(imgs, dark_imgs)
             f_names = ('sub_' + f_name for f_name in f_names)
@@ -294,12 +351,12 @@ def integrate_and_save(headers, dark_sub_bool=True,
         # Sum images
         if sum_idx_list:
             imgs = sum_images(imgs, sum_idx_list)
-            f_names = ('sum_' + si + '_' + f_name for si, f_name in zip(
+            f_names = ('sum_' + str(si) + '_' + f_name for si, f_name in zip(
                 sum_idx_list, f_names))
 
         # Correct for polarization
         if polarization_factor:
-            imgs = pol_correct_gen(imgs, polarization_factor)
+            imgs = pol_correct_gen(imgs, ai, polarization_factor)
 
         # Mask
         imgs, msk_imgs = tee(imgs, 2)
@@ -337,6 +394,61 @@ def integrate_and_save(headers, dark_sub_bool=True,
 
 
 def integrate_and_save_last(**kwargs):
+    """ integrate and save dark subtracted images for the last header
+
+       Parameters
+       ----------
+       dark_sub_bool : bool, optional
+           option to turn on/off dark subtraction functionality
+       polarization_factor : float, optional
+           polarization correction factor, ranged from -1(vertical) to +1
+           (horizontal). default is 0.99. set to None for no
+           correction.
+       mask_setting : str, ndarray optional
+           string for mask option. Valid options are 'default', 'auto' and
+           'None'. If 'default', mask included in metadata will be
+           used. If 'auto', a new mask would be generated from current
+           image. If 'None', no mask would be applied. If a ndarray of bools use
+           as mask. Predefined option is 'default'.
+       mask_dict : dict, optional
+           dictionary stores options for automasking functionality.
+           default is defined by an_glbl.auto_mask_dict.
+           Please refer to documentation for more details
+       save_image : bool, optional
+           option to save dark subtracted images. images will be
+           saved to the same directory of chi files. default is True.
+       root_dir : str, optional
+           path of chi files that are going to be saved. default is
+           the same as your image file
+       config_dict : dict, optional
+           dictionary stores integration parameters of pyFAI azimuthal
+           integrator. default is the most recent parameters saved in
+           xpdUser/conifg_base
+       handler : instance of class, optional
+           instance of class that handles data process, don't change it
+           unless needed.
+       sum_idx_list: list of lists and tuple or list or 'all', optional
+           The list of lists and tuples which specify the images to be summed.
+           If 'all', sum all the images in the run. If None, do nothing.
+           Defaults to None.
+       kwargs :
+           addtional keywords to overwrite integration behavior. Please
+           refer to pyFAI.azimuthalIntegrator.AzimuthalIntegrator for
+           more information
+
+       Note
+       ----
+       complete docstring of masking functionality could be find in
+       ``mask_img``
+
+       customized mask can be assign to by kwargs (It must be a ndarray)
+       >>> integrate_and_save(mask_setting=my_mask)
+
+       See also
+       --------
+       xpdan.tools.mask_img
+       pyFAI.azimuthalIntegrator.AzimuthalIntegrator
+       """
     yield from integrate_and_save(kwargs['handler'].exp_db[-1], **kwargs)
 
 
@@ -458,7 +570,7 @@ def sum_images(img_stream, idxs_list='all'):
     idxs_list: list of lists and tuple or list or 'all', optional
         The list of lists and tuples which specify the images to be summed.
         If 'all', sum all the images in the run. If None, do nothing.
-        Defaults to None.
+        Defaults to 'all'.
     Yields
     -------
     event_stream:
@@ -473,8 +585,6 @@ def sum_images(img_stream, idxs_list='all'):
     >>> total_imgs = sum_images(hdr, [[1, 2, 3], (5,10)])
     >>> assert len(total_imgs) == 2
     """
-    if idxs_list is None:
-        yield from img_stream
     if idxs_list is 'all':
         total_img = None
         for img in img_stream:
@@ -483,30 +593,19 @@ def sum_images(img_stream, idxs_list='all'):
             else:
                 total_img += img
         yield total_img
-    elif idxs_list:
-        # If we only have one list make it into a list of lists
-        if not all(isinstance(e1, list) or isinstance(e1, tuple) for e1 in
-                   idxs_list):
-            idxs_list = [idxs_list]
-        # Each idx list gets its own copy of the event stream
-        # This is to prevent one idx list from eating the generator
-        img_stream_copies = tee(img_stream, len(idxs_list))
-        for idxs, sub_image_stream in zip(idxs_list, img_stream_copies):
-            total_img = None
-            if isinstance(idxs, tuple):
-                for idx in range(idxs[0], idxs[1]):
-                    img, *rest, event = next(islice(sub_image_stream, idx))
-                    if total_img is None:
-                        total_img = img
-                    else:
-                        total_img += img
-                yield total_img
+    elif all(isinstance(i, int) for i in idxs_list): # idxs_iist = [1, 2, 3]
+        total_img = None
+        for idx in idxs_list:
+            img = next(islice(img_stream, idx))
+            if total_img is None:
+                total_img = img
             else:
-                total_img = None
-                for idx in idxs:
-                    img = next(islice(sub_image_stream, idx))
-                    if total_img is None:
-                        total_img = img
-                    else:
-                        total_img += img
-                yield total_img
+                total_img += img
+        yield total_img
+    elif isinstance(idxs_list, tuple): # idxs_list = (1, 5)
+        yield from sum_images(img_stream, list(range(idxs_list[0],
+                                                     idxs_list[1])))
+    else: # idxs_list = [[1, 2, 3], (3, 5), ...]
+        sub_image_streams = list(tee(img_stream, len(idxs_list)))
+        for sub_idxs in idxs_list:
+            yield from sum_images(sub_image_streams.pop(), sub_idxs)

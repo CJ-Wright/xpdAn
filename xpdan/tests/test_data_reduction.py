@@ -13,8 +13,8 @@
 #
 ##############################################################################
 from xpdan.data_reduction import associate_dark, subtract_gen, \
-    pol_correct_gen, mask_logic, an_glbl, decompress_mask, mask_img,\
-    _load_config, read_fit2d_msk
+    pol_correct_gen, mask_logic, an_glbl, decompress_mask, mask_img, \
+    _load_config, read_fit2d_msk, sum_images
 from itertools import tee, product
 import pytest
 from pprint import pprint
@@ -25,10 +25,9 @@ from numpy.testing import assert_array_equal
 import fabio
 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 
-
 ai = AzimuthalIntegrator()
 sum_idx_values = (
-    None, 'all', [1, 2, 3], [(1, 3)], [[1, 2, 3], [2, 3]], [[1, 3], (1, 3)])
+    'all', [1, 2, 3], (1, 3), [[1, 2, 3], [2, 3]], [[1, 3], (1, 3)])
 
 integrate_params = ['dark_sub_bool',
                     'polarization_factor',
@@ -71,7 +70,6 @@ for vs in bad_kwargs:
 save_tiff_kwargs = []
 save_tiff_params = ['dark_sub_bool', 'max_count', 'dryrun']
 save_tiff_kwarg_values = [(True, False), (None, 1), (True, False)]
-
 
 for vs in save_tiff_kwarg_values:
     d = {k: v for (k, v) in zip(save_tiff_params, vs)}
@@ -135,3 +133,60 @@ def test_mask_logic(exp_db, handler, mask_setting, disk_mask):
     for m in gen:
         if isinstance(m, np.ndarray):
             assert_array_equal(m, expected)
+
+
+@pytest.mark.parametrize('polarization', [.99, .95, .5])
+def test_pol(exp_db, handler, polarization):
+    imgs = exp_db.get_images(exp_db[-1], handler.image_field)
+    ai.setPyFAI(**_load_config(exp_db[-1]))
+    a = pol_correct_gen(imgs, ai, polarization)
+    for x, y in zip(imgs, a):
+        assert_array_equal(x / ai.polarization(x.shape, polarization), y)
+
+
+@pytest.mark.parametrize('tf', [True, False])
+def test_subtract_gen(tf):
+    if tf:
+        a = range(10)
+        b = range(10)
+        c = subtract_gen(a, b)
+        for z in c:
+            assert z == 0
+    else:
+        a = range(10)
+        d = (None for i in range(10))
+        f = subtract_gen(a, d)
+        for i, y in enumerate(f):
+            assert y == i
+
+
+@pytest.mark.parametrize("idxs", sum_idx_values)
+def test_sum_logic(exp_db, handler, idxs):
+    hdr = exp_db[-1]
+    image_stream = handler.exp_db.get_images(hdr, handler.image_field)
+    sub_event_streams = list(tee(image_stream, 3))
+    image_list = list(sub_event_streams.pop())
+    a = sum_images(sub_event_streams[0], idxs)
+
+    def sum_list(imgs, idxs):
+        if all(isinstance(i, int) for i in idxs):  # idxs_iist = [1, 2, 3]
+            total_img = None
+            for idx in idxs:
+                img = imgs[idx]
+                if total_img is None:
+                    total_img = img
+                else:
+                    total_img += img
+            yield total_img
+        elif isinstance(idxs, tuple):  # idxs = (1, 5)
+            yield from sum_images(imgs, list(range(idxs[0], idxs[1])))
+        else:  # idxs = [[1, 2, 3], (3, 5), ...]
+            sub_image_streams = list(tee(imgs, len(idxs)))
+            for sub_idxs in idxs:
+                yield from sum_images(sub_image_streams.pop(), sub_idxs)
+
+    if idxs is 'all':
+        assert_array_equal(sum(image_list), next(a))
+    else:
+        for i, j in zip(a, sum_list(image_list, idxs)):
+            assert_array_equal(i, j)
