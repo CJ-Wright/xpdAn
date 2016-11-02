@@ -149,11 +149,6 @@ xpd_data_proc = DataReduction()
 ai = AzimuthalIntegrator()
 
 
-def image_stream(events, handler):
-    for e in events:
-        yield e[handler.image_field]
-
-
 def associate_dark(header, events, handler):
     dark_uid = header.start.get(an_glbl.dark_field_key, None)
     if dark_uid is None:
@@ -175,11 +170,6 @@ def subtract_gen(event_stream1, event_stream2):
             yield e1 - e2
         else:
             yield e1
-
-
-def pol_correct_gen(img_stream, ai):
-    for img in img_stream:
-        yield img / ai.polarization_cor
 
 
 def mask_logic(msk_imgs, mask_setting, internal_mdict, header, ai=None):
@@ -305,8 +295,7 @@ def integrate_and_save(headers, dark_sub_bool=True,
         # Correct for polarization
         if polarization_factor:
             imgs = (img / ai.polarization(img.shape, polarization_factor) for
-                    img
-                    in imgs)
+                    img in imgs)
 
         # Mask
         imgs, msk_imgs = tee(imgs, 2)
