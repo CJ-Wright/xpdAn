@@ -38,10 +38,10 @@ def insert_imgs(mds, fs, n, shape, save_dir=tempfile.mkdtemp()):
     """
     # Insert the dark images
     dark_img = np.ones(shape)
-    dark_uid = str(uuid4())
-    run_start = mds.insert_run_start(uid=dark_uid, time=time.time(),
+    sc_dk_field_uid = str(uuid4())
+    run_start = mds.insert_run_start(uid=sc_dk_field_uid, time=time.time(),
                                      name='test-dark',
-                                     is_dark_img=True,)
+                                     dark_frame=True,)
     data_keys = {
         'pe1_image': dict(source='testing', external='FILESTORE:',
                     dtype='array')}
@@ -68,8 +68,8 @@ def insert_imgs(mds, fs, n, shape, save_dir=tempfile.mkdtemp()):
                         time=time.time())
     imgs = [np.ones(shape)] * n
     run_start = mds.insert_run_start(uid=str(uuid4()), time=time.time(),
-                                     name='test', dark_uid=dark_uid,
-                                     sc_dk_field_uid=dark_uid)
+                                     name='test',
+                                     sc_dk_field_uid=sc_dk_field_uid)
     data_keys = {
         'pe1_image': dict(source='testing', external='FILESTORE:',
                           dtype='array')}

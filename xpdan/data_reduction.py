@@ -89,13 +89,13 @@ class DataReduction:
         return "_".join(feature_list)
 
     def pull_dark(self, header):
-        dark_uid = header.start.get(an_glbl.dark_field_key, None)
-        if dark_uid is None:
+        sc_dk_field_uid = header.start.get(an_glbl.dark_field_key, None)
+        if sc_dk_field_uid is None:
             print("INFO: no dark frame is associated in this header, "
-                  "subrraction will not be processed")
+                  "subtraction will not be processed")
             return None, header.start.time
         else:
-            dark_search = {'uid': dark_uid}
+            dark_search = {'uid': sc_dk_field_uid}
             dark_header = self.exp_db(**dark_search)[0]
             dark_img = np.asarray(
                 self.exp_db.get_images(dark_header, self.image_field)[0]
@@ -150,13 +150,13 @@ ai = AzimuthalIntegrator()
 
 
 def associate_dark(header, events, handler):
-    dark_uid = header.start.get(an_glbl.dark_field_key, None)
-    if dark_uid is None:
+    sc_dk_field_uid = header.start.get(an_glbl.dark_field_key, None)
+    if sc_dk_field_uid is None:
         print("INFO: no dark frame is associated in this header, "
-              "subrraction will not be processed")
+              "subtraction will not be processed")
         dark_img = None
     else:
-        dark_search = {'uid': dark_uid}
+        dark_search = {'uid': sc_dk_field_uid}
         dark_header = handler.exp_db(**dark_search)[0]
         dark_img = handler.exp_db.get_images(dark_header,
                                              handler.image_field)[0]
@@ -391,7 +391,6 @@ def integrate_and_save(headers, dark_sub_bool=True,
                 fn = os.path.join(root_dir, fn)
                 print("INFO: save chi file: {}".format(fn))
                 rv = ai.integrate1d(img, npt, filename=fn, mask=_mask,
-                                    # polarization_factor=polarization_factor,
                                     unit=unit, **kwargs)
                 rvs.append(rv)
             yield rvs
