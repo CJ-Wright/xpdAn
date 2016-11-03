@@ -150,18 +150,10 @@ ai = AzimuthalIntegrator()
 
 
 def associate_dark(header, events, handler):
-    sc_dk_field_uid = header.start.get(an_glbl.dark_field_key, None)
-    if sc_dk_field_uid is None:
-        print("INFO: no dark frame is associated in this header, "
-              "subtraction will not be processed")
-        dark_img = None
-    else:
-        dark_search = {'uid': sc_dk_field_uid}
-        dark_header = handler.exp_db(**dark_search)[0]
-        dark_img = handler.exp_db.get_images(dark_header,
-                                             handler.image_field)[0]
-    for e in events:
-        yield dark_img
+        dark_img, dark_img_time = handler.pull_dark(header)
+
+        for e in events:
+            yield dark_img
 
 
 def subtract_gen(event_stream1, event_stream2):
