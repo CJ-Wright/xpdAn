@@ -34,7 +34,6 @@ class AnalysisRunEngine:
         try:
             rf = run_function(*hdrs, *args, **kwargs)
             for i, res, data in enumerate(rf):
-                # TODO: Or do we require a describe method to specify this?
                 self.an_db.insert_event(
                     descriptor=descriptor,
                     uid=str(uuid4()),
@@ -87,8 +86,6 @@ class RunFunction:
             returns = []
             # For each of the outputs save them to filestore, maybe
             for b, s in zip(output, self.save_func):
-                if s is None:
-                    returns.append(b)
                 if self.save_to_filestore:
                     uid = str(uuid4())
                     # make save name
@@ -101,27 +98,8 @@ class RunFunction:
                                                 self.resource_kwargs)
                     fs.insert_datum(fs_res, uid, self.datum_kwargs)
                 else:
-                    returns.append(s(b))
+                    if s is None:
+                        returns.append(b)
+                    else:
+                        returns.append(s(b))
             yield returns, output
-
-
-def run_function_factory(function, data_names, data_sub_keys, save_func=None,
-                         save_loc=None,
-                         spec=None, resource_kwargs={}, datum_kwargs={}):
-    """Function to build run_functions for ease of use
-
-    Parameters
-    ----------
-    function
-    data_names
-    data_sub_keys
-    save_func
-    save_loc
-    spec
-    resource_kwargs
-    datum_kwargs
-
-    Returns
-    -------
-
-    """
