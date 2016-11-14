@@ -150,14 +150,46 @@ ai = AzimuthalIntegrator()
 
 
 def associate_dark(header, events, handler):
-        dark_img, dark_img_time = handler.pull_dark(header)
+    """Associate dark images with light images
 
-        for e in events:
-            yield dark_img
+    Parameters
+    ----------
+    header: mds.RunStart document
+        The run start header for the light images
+    events: generator
+        The light events as a generator
+    handler: DataReduction instance
+        The data reduction handler
+
+    Yields
+    -------
+    ndarray:
+        The dark image
+    """
+    dark_img, dark_img_time = handler.pull_dark(header)
+
+    for e in events:
+        yield dark_img
 
 
-def subtract_gen(event_stream1, event_stream2):
-    for e1, e2 in zip(event_stream1, event_stream2):
+def subtract_gen(img_stream1, img_stream2):
+    """Subtract images from two image streams
+
+    Parameters
+    ----------
+    img_stream1: generator of ndarrays
+        The stream of images to be subtracted from
+    img_stream2: generator of ndarrays
+        The stream of images from which images from img_stream1 will be
+        subtracted
+
+    Yields
+    -------
+    ndarray or None:
+        The subtracted image if both image streams contain images, else the
+        image from img_stream1. If both streams contain None then yield None.
+    """
+    for e1, e2 in zip(img_stream1, img_stream2):
         if all([e1 is not None, e2 is not None]):
             yield e1 - e2
         else:
@@ -165,11 +197,54 @@ def subtract_gen(event_stream1, event_stream2):
 
 
 def pol_correct_gen(imgs, ai, polarization_factor):
+    """Correct images for polarization
+
+    Parameters
+    ----------
+    imgs: generator of ndarrays
+        The stream of images to be corrected
+    ai: pyFAI.geometry.Geometry instance or subclass thereof
+        The object which contains the correction and detector parameters
+    polarization_factor: float
+        The polarization factor to be corrected for
+
+    Yields
+    -------
+    ndarray:
+        The corrected image
+    """
     yield from (img / ai.polarization(img.shape, polarization_factor) for
                 img in imgs)
 
 
 def mask_logic(msk_imgs, mask_setting, internal_mdict, header, ai=None):
+    """Produce a stream of masks for a stream of images
+
+    Parameters
+    ----------
+    msk_imgs: generator of ndarrays
+        The stream of images, note that all images must be corrected as much
+        as possible before masking
+    mask_setting : str, ndarray
+           string for mask option. Valid options are 'default', 'auto' and
+           'None'. If 'default', mask included in metadata will be
+           used. If 'auto', a new mask would be generated from current
+           image. If 'None', no mask would be applied. If a ndarray of bools
+           use as mask. If a path/filename to a valid fit2d or numpy mask file
+           (with extensions of `.msk` or `.npy`) load the file and use that.
+    internal_mdict: dict
+           dictionary stores options for automasking functionality. See
+           mask_img for options
+    header: mds.RunStart document
+        The run start containing the data
+    ai: pyFAI.geometry.Geometry instance or subclass thereof
+        The object which contains the detector parameters
+
+    Yields
+    -------
+    ndarray:
+        The boolian mask arrays
+    """
     mask = None
     if mask_setting != 'auto':
         if type(mask_setting) == np.ndarray and \
@@ -261,8 +336,10 @@ def integrate_and_save(headers, dark_sub_bool=True,
            string for mask option. Valid options are 'default', 'auto' and
            'None'. If 'default', mask included in metadata will be
            used. If 'auto', a new mask would be generated from current
-           image. If 'None', no mask would be applied. If a ndarray of bools use
-           as mask. Predefined option is 'default'.
+           image. If 'None', no mask would be applied. If a ndarray of bools
+           use as mask. If a path/filename to a valid fit2d or numpy mask file
+           (with extensions of `.msk` or `.npy`) load the file and use that.
+           Predefined option is 'default'.
        mask_dict : dict, optional
            dictionary stores options for automasking functionality.
            default is defined by an_glbl.auto_mask_dict.
