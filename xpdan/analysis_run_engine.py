@@ -18,6 +18,7 @@ class AnalysisRunEngine:
             uid=str(uuid4()), time=time.time(),
             provenance={'function_name': run_function.__name__,
                         'hdr_uids': [hdr['start']['uid'] for hdr in hdrs],
+                        'args': args,
                         'kwargs': kwargs})
         # The function fails unless it runs to completion
         exit_md = {'exit_status': 'failure'}
