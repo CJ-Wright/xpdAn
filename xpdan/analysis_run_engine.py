@@ -2,24 +2,28 @@ import time
 from uuid import uuid4
 
 import traceback
+import subprocess
 
 
 class AnalysisRunEngine:
-    def __init__(self, experimental_db, analysis_db):
-        self.exp_db = experimental_db
+    def __init__(self, input_dbs, analysis_db):
+        self.input_dbs = input_dbs
         self.an_db = analysis_db
 
     def __call__(self, hdrs, run_function, *args, md=None,
-                 subscription=None, **kwargs):
+                 subscription=[], **kwargs):
         if not isinstance(hdrs, list):
             hdrs = [hdrs]
         # issue run start
-        run_start_uid = self.an_db.insert_run_start(
+        run_start_uid = self.an_db.mds.insert_run_start(
             uid=str(uuid4()), time=time.time(),
+            parents={'uid': [hdr['start']['uid'] for hdr in hdrs],
+                     'db_uids': [hdr['db_uid'] for hdr in hdrs]},
             provenance={'function_name': run_function.__name__,
-                        'hdr_uids': [hdr['start']['uid'] for hdr in hdrs],
                         'args': args,
-                        'kwargs': kwargs})
+                        'kwargs': kwargs,
+                        'conda_env': str(subprocess.check_output(
+                            ['conda', 'list', '-e']).decode())})
         # The function fails unless it runs to completion
         exit_md = {'exit_status': 'failure'}
 
@@ -28,14 +32,17 @@ class AnalysisRunEngine:
                         data_keys=data_keys,
                         time=time.time(),
                         uid=str(uuid4()))
-        descriptor = self.an_db.insert_descriptor(**data_hdr)
-        if not isinstance(subscription, list):
+        descriptor = self.an_db.mds.insert_descriptor(**data_hdr)
+        if not isinstance(subscription, list) and subscription is not None:
             subscription = [subscription]
+        event_streams = [
+            self.input_dbs[hdr['db_uid']].get_events(hdr, fill=True) for hdr in
+            hdrs]
         # run the analysis function
         try:
-            rf = run_function(*hdrs, *args, **kwargs)
-            for i, res, data in enumerate(rf):
-                self.an_db.insert_event(
+            rf = run_function(event_streams, *args, fs=self.an_db.fs, **kwargs)
+            for i, (res, data) in enumerate(rf):
+                self.an_db.mds.insert_event(
                     descriptor=descriptor,
                     uid=str(uuid4()),
                     time=time.time(),
@@ -54,9 +61,9 @@ class AnalysisRunEngine:
             exit_md['reason'] = repr(e)
             exit_md['traceback'] = traceback.format_exc()
         finally:
-            self.an_db.insert_run_stop(run_start=run_start_uid,
-                                       uid=str(uuid4()),
-                                       time=time.time(), **exit_md)
+            self.an_db.mds.insert_run_stop(run_start=run_start_uid,
+                                           uid=str(uuid4()),
+                                           time=time.time(), **exit_md)
             return run_start_uid
 
 
@@ -68,6 +75,8 @@ class RunFunction:
         self.function = function
         self.data_names = data_names
         self.data_sub_keys = data_sub_keys
+        if not hasattr(save_func, '__iter__'):
+            save_func = [save_func]
         self.save_func = save_func
         self.save_loc = save_loc
         self.spec = spec
@@ -92,7 +101,7 @@ class RunFunction:
                     # make save name
                     save_name = self.save_loc + uid
                     # Save using the save function
-                    s(b, save_name)
+                    s(save_name, b)
                     # Insert into FS
                     uid = str(uuid4())
                     fs_res = fs.insert_resource(self.spec, save_name,

@@ -66,6 +66,7 @@ def insert_imgs(mds, fs, n, shape, save_dir=tempfile.mkdtemp()):
     mds.insert_run_stop(run_start=run_start,
                         uid=str(uuid4()),
                         time=time.time())
+
     imgs = [np.ones(shape)] * n
     run_start = mds.insert_run_start(uid=str(uuid4()), time=time.time(),
                                      name='test',

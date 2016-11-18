@@ -76,6 +76,22 @@ def exp_db(db, mk_glbl, img_size):
 
 
 @pytest.fixture(scope='module')
+def an_db(db, mk_glbl, img_size):
+    glbl = mk_glbl
+    db2 = db
+    mds = db2.mds
+    fs = db2.fs
+    yield db2
+    print("DROPPING MDS")
+    mds._connection.drop_database(mds.config['database'])
+    print("DROPPING FS")
+    fs._connection.drop_database(fs.config['database'])
+    if os.path.exists(glbl.base):
+        print('removing {}'.format(glbl.base))
+        shutil.rmtree(glbl.base)
+
+
+@pytest.fixture(scope='module')
 def disk_mask(mk_glbl, img_size):
     mask = np.random.random_integers(0, 1, img_size).astype(bool)
     dirn = mk_glbl.base
