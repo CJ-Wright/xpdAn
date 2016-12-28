@@ -51,14 +51,18 @@ def dark_subtraction_hfi(streams, *args, image_name='pe1_image', **kwargs):
 
     _, light_descriptor = next(light_name_doc_stream_pair)
     _, dark_descriptor = next(dark_name_doc_stream_pair)
-    new_descriptor = dict(
-        uid=str(uuid4()), time=time(),
-        run_start=run_start_uid,
-        data_keys=dict(
-            img=dict(source='testing',
-                     dtype='array',
-                     shape=light_descriptor['data_keys'][image_name][
-                         'shape'])))
+
+    if 'shape' in light_descriptor['data_keys'][image_name].keys():
+        img_dict = dict(source='testing', dtype='array',
+                        shape=light_descriptor['data_keys'][image_name][
+                            'shape'])
+    else:
+        img_dict = dict(source='testing', dtype='array', )
+
+    new_descriptor = dict(uid=str(uuid4()), time=time(),
+                          run_start=run_start_uid,
+                          data_keys=dict(
+                              img=img_dict))
     yield 'descriptor', new_descriptor
 
     exit_md = None
@@ -168,21 +172,29 @@ def margin_mask_hfi(name_doc_stream_pair,
     new_start_doc = dict(uid=run_start_uid, time=time(),
                          parents=parents,
                          hfi=margin_mask_hfi.__name__,
-                         provenance={'module': sys.modules[__name__],
-                                     'hfi': dark_subtraction_hfi.__name__,
-                                     'args': args,
-                                     'kwargs': kwargs,
-                                     'process': process.__name__
-                                     })
+                         provenance=dict(
+                             hfi_module=inspect.getmodule(
+                                 margin_mask_hfi).__name__,
+                             hfi=margin_mask_hfi.__name__,
+                             process_module=inspect.getmodule(
+                                 process).__name__,
+                             process=process.__name__,
+                             kwargs=kwargs,
+                             args=args))
     yield 'start', new_start_doc
 
     _, descriptor = next(name_doc_stream_pair)
-    _, _ = next()
+    if 'shape' in descriptor['data_keys'][image_name].keys():
+        img_dict = dict(source='testing', dtype='array',
+                        shape=descriptor['data_keys'][image_name][
+                            'shape'])
+    else:
+        img_dict = dict(source='testing', dtype='array', )
+
     new_descriptor = dict(uid=str(uuid4()), time=time(),
                           run_start=run_start_uid,
-                          data_keys={'mask': dict(source='testing',
-                                                  dtype='array'),
-                                     })
+                          data_keys=dict(
+                              mask=img_dict))
     yield 'descriptor', new_descriptor
 
     exit_md = None
