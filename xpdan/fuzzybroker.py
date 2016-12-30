@@ -174,42 +174,6 @@ class FuzzyBroker(Broker):
         heap.reverse()
         return [g[-1] for g in heap if g[0] >= 0.]
 
-    def _get_parents_single_level(self, hdr):
-        if type(hdr) is str:
-            hdr = self[hdr]
-        if 'parents' not in hdr.keys():
-            return []
-        else:
-            return [self[p] for p in hdr['parents']]
-
-    def get_parents(self, hdr):
-        parents = []
-        new_parents = [hdr]
-        while new_parents:
-            new_new_parents = []
-            for header in new_parents:
-                new_new_parents.append(self._get_parents_single_level(header))
-            parents.append(new_new_parents)
-            new_parents = new_new_parents
-        return parents
-
-    def _get_children_single_level(self, hdr):
-        if type(hdr) is str:
-            hdr = self[hdr]
-        return self()  # if hdr['uid'] is in 'parents'
-
-    def get_children(self, hdr):
-        children = []
-        new_children = [hdr]
-        while new_children:
-            new_new_children = []
-            for header in new_children:
-                new_new_children.append(
-                    self._get_children_single_level(header))
-            children.append(new_new_children)
-            new_children = new_new_children
-        return children
-
 
 def _get_from_dict(data_dict, map_list):
     """Get a value from a nested dictionary, given a list of keys
