@@ -29,6 +29,7 @@ from xpdan.fuzzybroker import FuzzyBroker
 from pkg_resources import resource_filename as rs_fn
 import yaml
 from uuid import uuid4
+
 pyfai_path = rs_fn('xpdsim', 'data/pyfai/pyFAI_calib.yml')
 
 if sys.version_info >= (3, 0):
@@ -73,24 +74,27 @@ def handler(exp_db):
 
 
 @pytest.fixture(scope='module')
-def exp_db(db, mk_glbl, img_size):
+def wavelength():
+    yield 1.15
+
+
+@pytest.fixture(scope='module')
+def exp_db(db, mk_glbl, img_size, wavelength):
     glbl = mk_glbl
     db2 = db
     mds = db2.mds
     fs = db2.fs
     with open(pyfai_path) as f:
         pyfai_dict = yaml.load(f)
+    cal_dict = dict(calibration_md=pyfai_dict,
+                    calibration_collection_uid=str(uuid4()),
+                    wavelength=wavelength)
     insert_imgs(mds, fs, 5, img_size, glbl.base, bt_safN=0, pi_name='chris',
-                **dict(calibration_md=pyfai_dict,
-                       calibration_collection_uid=str(uuid4())))
+                **cal_dict)
     insert_imgs(mds, fs, 5, img_size, glbl.base, pi_name='tim', bt_safN=1,
-                **dict(calibration_md=pyfai_dict,
-                       calibration_collection_uid=str(uuid4()))
-                )
+                **cal_dict)
     insert_imgs(mds, fs, 5, img_size, glbl.base, pi_name='chris', bt_safN=2,
-                **dict(calibration_md=pyfai_dict,
-                       calibration_collection_uid=str(uuid4()))
-                )
+                **cal_dict)
     yield db2
 
 

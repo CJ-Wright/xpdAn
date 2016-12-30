@@ -31,18 +31,18 @@ import types
 
 # -1. Wavelength Calibration (Pending @sghose)
 def spoof_wavelength_calibration_hfi(stream, *args,
-                                     calibration_field='stuff',
+                                     calibration_field='wavelength',
                                      **kwargs):
-    output_field_name = 'detector_calibration'
+    output_field_name = 'wavelength'
     _, start_doc = next(stream)
     run_start_uid = str(uuid4())
     new_start_doc = dict(
         uid=run_start_uid, time=time(),
-        parents=start_doc['uid'],
-        hfi=dark_subtraction_hfi.__name__,
+        parents=[start_doc['uid']],
+        hfi=spoof_wavelength_calibration_hfi.__name__,
         provenance=dict(
-            hfi_module=inspect.getmodule(dark_subtraction_hfi).__name__,
-            hfi=dark_subtraction_hfi.__name__,
+            hfi_module=inspect.getmodule(spoof_wavelength_calibration_hfi).__name__,
+            hfi=spoof_wavelength_calibration_hfi.__name__,
             process_module='spoof',
             process='spoof',
             kwargs=kwargs,
@@ -73,18 +73,19 @@ def spoof_wavelength_calibration_hfi(stream, *args,
 
 # 0. Detector Calibration
 def spoof_detector_calibration_hfi(stream, *args,
-                                   calibration_field='stuff',
+                                   calibration_field='calibration_md',
                                    **kwargs):
     output_field_name = 'detector_calibration'
     _, start_doc = next(stream)
     run_start_uid = str(uuid4())
     new_start_doc = dict(
         uid=run_start_uid, time=time(),
-        parents=start_doc['uid'],
-        hfi=dark_subtraction_hfi.__name__,
+        parents=[start_doc['uid'], ],
+        hfi=spoof_detector_calibration_hfi.__name__,
         provenance=dict(
-            hfi_module=inspect.getmodule(dark_subtraction_hfi).__name__,
-            hfi=dark_subtraction_hfi.__name__,
+            hfi_module=inspect.getmodule(
+                spoof_detector_calibration_hfi).__name__,
+            hfi=spoof_detector_calibration_hfi.__name__,
             process_module='spoof',
             process='spoof',
             kwargs=kwargs,
@@ -92,8 +93,6 @@ def spoof_detector_calibration_hfi(stream, *args,
     )  # More provenance to be defined (eg environment)
     results = start_doc[calibration_field]
     yield 'start', new_start_doc
-
-    _, light_descriptor, _, _ = [n for s in stream for n in next(s)]
 
     img_dict = dict(source='testing', dtype='object', )
     new_descriptor = dict(uid=str(uuid4()), time=time(),
