@@ -30,7 +30,7 @@ from pkg_resources import resource_filename as rs_fn
 import yaml
 from uuid import uuid4
 
-pyfai_path = rs_fn('xpdsim', 'data/pyfai/pyFAI_calib.yml')
+pyfai_path = rs_fn('xpdan', 'data/pyfai/pyFAI_calib.yml')
 
 if sys.version_info >= (3, 0):
     pass
