@@ -6,5 +6,6 @@ setup(
     packages=find_packages(),
     description='data processing module',
     zip_safe=False,
+    package_data={'xpdsim': ['data/']},
     url='http:/github.com/xpdAcq/xpdAn'
 )

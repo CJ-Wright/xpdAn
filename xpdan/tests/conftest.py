@@ -26,6 +26,10 @@ from xpdan.simulation import build_pymongo_backed_broker
 from xpdan.tests.utils import insert_imgs
 import tempfile
 from xpdan.fuzzybroker import FuzzyBroker
+from pkg_resources import resource_filename as rs_fn
+import yaml
+from uuid import uuid4
+pyfai_path = rs_fn('xpdsim', 'data/pyfai/pyFAI_calib.yml')
 
 if sys.version_info >= (3, 0):
     pass
@@ -74,9 +78,19 @@ def exp_db(db, mk_glbl, img_size):
     db2 = db
     mds = db2.mds
     fs = db2.fs
-    insert_imgs(mds, fs, 5, img_size, glbl.base, bt_safN=0, pi_name='chris')
-    insert_imgs(mds, fs, 5, img_size, glbl.base, pi_name='tim', bt_safN=1)
-    insert_imgs(mds, fs, 5, img_size, glbl.base, pi_name='chris', bt_safN=2)
+    with open(pyfai_path) as f:
+        pyfai_dict = yaml.load(f)
+    insert_imgs(mds, fs, 5, img_size, glbl.base, bt_safN=0, pi_name='chris',
+                **dict(calibration_md=pyfai_dict,
+                       calibration_collection_uid=str(uuid4())))
+    insert_imgs(mds, fs, 5, img_size, glbl.base, pi_name='tim', bt_safN=1,
+                **dict(calibration_md=pyfai_dict,
+                       calibration_collection_uid=str(uuid4()))
+                )
+    insert_imgs(mds, fs, 5, img_size, glbl.base, pi_name='chris', bt_safN=2,
+                **dict(calibration_md=pyfai_dict,
+                       calibration_collection_uid=str(uuid4()))
+                )
     yield db2
 
 
