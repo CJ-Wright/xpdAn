@@ -21,8 +21,30 @@ def test_spoof_wavelength_calibration_hfi(exp_db, an_db, wavelength):
             assert z['parents'] == [hdr['start']['uid'], ]
             assert z['hfi'] == hfi.__name__
             for k, expected_v in {'hfi_module': inspect.getmodule(
-                hfi).__name__, 'hfi': hfi.__name__,
+                    hfi).__name__, 'hfi': hfi.__name__,
                                   'args': (), 'kwargs': {},
+                                  'process': 'spoof',
+                                  'process_module': 'spoof'}.items():
+                assert z['provenance'][k] == expected_v
+        if n == 'descriptor':
+            assert z['data_keys']['wavelength']['dtype'] == 'float'
+
+        if n == 'stop':
+            assert z['exit_status'] == 'success'
+
+        if n == 'event':
+            assert z['data']['wavelength'] == wavelength
+
+    for (n, z) in an_db.restream(an_db[-1], fill=True):
+        pprint(n)
+        pprint(z)
+        print()
+        if n == 'start':
+            assert z['parents'] == [hdr['start']['uid'], ]
+            assert z['hfi'] == hfi.__name__
+            for k, expected_v in {'hfi_module': inspect.getmodule(
+                    hfi).__name__, 'hfi': hfi.__name__,
+                                  'args': [], 'kwargs': {},
                                   'process': 'spoof',
                                   'process_module': 'spoof'}.items():
                 assert z['provenance'][k] == expected_v
@@ -66,6 +88,30 @@ def test_spoof_detector_calibration_hfi(exp_db, an_db):
             ai = AzimuthalIntegrator()
             ai.setPyFAI(**z['data']['detector_calibration'])
 
+    for (n, z) in an_db.restream(an_db[-1], fill=True):
+        pprint(n)
+        pprint(z)
+        print()
+        if n == 'start':
+            assert z['parents'] == [hdr['start']['uid'], ]
+            assert z['hfi'] == hfi.__name__
+            for k, expected_v in {'hfi_module': inspect.getmodule(
+                    hfi).__name__, 'hfi': hfi.__name__,
+                                  'args': [], 'kwargs': {},
+                                  'process': 'spoof',
+                                  'process_module': 'spoof'}.items():
+                assert z['provenance'][k] == expected_v
+        if n == 'descriptor':
+            assert z['data_keys']['detector_calibration']['dtype'] == 'object'
+
+        if n == 'stop':
+            assert z['exit_status'] == 'success'
+
+        if n == 'event':
+            assert type(z['data']['detector_calibration']) == dict
+            ai = AzimuthalIntegrator()
+            ai.setPyFAI(**z['data']['detector_calibration'])
+
 
 def test_dark_subtraction_hfi(exp_db, an_db, tmp_dir, img_size):
     hdr = exp_db[-1]
@@ -92,7 +138,7 @@ def test_dark_subtraction_hfi(exp_db, an_db, tmp_dir, img_size):
                     hfi).__name__, 'hfi': hfi.__name__,
                                   'args': (), 'kwargs': {},
                                   'process_module': inspect.getmodule(
-                    process).__name__,
+                                      process).__name__,
                                   'process': process.__name__}.items():
                 assert z['provenance'][k] == expected_v
 
@@ -142,3 +188,53 @@ def test_margin_mask_hfi(exp_db, an_db, tmp_dir, img_size):
 
         if n == 'event':
             assert_array_equal(z['data']['mask'], margin(img_size, 13))
+
+
+def test_polarization_correction_hfi(exp_db, an_db, tmp_dir, img_size):
+    hdr = exp_db[-1]
+    hfi = spoof_detector_calibration_hfi
+    dec_hfi = db_store_single_resource_single_file(
+        an_db, {})(hfi)
+    for a in dec_hfi(exp_db.restream(hdr, fill=True)):
+        pass
+    cal_hdr = an_db[-1]
+
+    hfi = polarization_correction_hfi
+    process = correct_polarization
+    dec_hfi = db_store_single_resource_single_file(
+        an_db, {'img': (NPYSaver, (tmp_dir,), {})})(hfi)
+
+    # Actually run the thing
+    for (n, z), (n2, z2) in zip(dec_hfi((
+            exp_db.restream(hdr, fill=True),
+            an_db.restream(cal_hdr, fill=True)), image_name='pe1_image',
+            polarization_factor=.95),
+            exp_db.restream(hdr, fill=True)):
+        pprint(n)
+        pprint(z)
+        print()
+        if n == 'start':
+            assert z['parents'] == [hdr['start']['uid'],
+                                    cal_hdr['start']['uid']]
+            assert z['hfi'] == hfi.__name__
+            for k, expected_v in {'hfi_module': inspect.getmodule(
+                    hfi).__name__, 'hfi': hfi.__name__,
+                                  'args': (),
+                                  'kwargs': dict(polarization_factor=.95),
+                                  'process_module': inspect.getmodule(
+                                      process).__name__,
+                                  'process': process.__name__}.items():
+                assert z['provenance'][k] == expected_v
+
+        if n == 'descriptor':
+            for ss1, ss2 in zip(z['data_keys']['img']['shape'], img_size):
+                assert ss1 == ss2
+
+        if n == 'stop':
+            assert z['exit_status'] == 'success'
+
+            # if n == 'event':
+            #     assert_array_equal(z['data']['img'],
+            #                        z2['data']['pe1_image'])
+
+

@@ -176,8 +176,9 @@ def dark_subtraction_hfi(streams, *args, image_name='pe1_image', **kwargs):
 # 2. Polarization Correction
 def polarization_correction_hfi(streams, *args,
                                 image_name='img', **kwargs):
+    output_field_name = 'img'
     process = correct_polarization
-    name_doc_stream_pair, calibration_name_doc_stream_pair = streams
+    image_stream, calibration_stream = streams
     starts = [next(s) for s in streams]
     parents = [s['uid'] for n, s in starts]
     run_start_uid = str(uuid4())
@@ -186,7 +187,7 @@ def polarization_correction_hfi(streams, *args,
                          hfi=polarization_correction_hfi.__name__,
                          provenance=dict(
                              hfi_module=sys.modules[__name__].__name__,
-                             hfi=dark_subtraction_hfi.__name__,
+                             hfi=polarization_correction_hfi.__name__,
                              process_module=inspect.getmodule(
                                  process).__name__,
                              process=process.__name__,
@@ -195,20 +196,22 @@ def polarization_correction_hfi(streams, *args,
                          )  # More provenance to be defined (eg environment)
     yield 'start', new_start_doc
 
-    _, descriptor = next(name_doc_stream_pair)
-    _, cal_desc = next(calibration_name_doc_stream_pair)
+    _, light_descriptor, _, _ = [n for s in streams for n in next(s)]
+    img_dict = dict(source='testing', dtype='array', )
+    if 'shape' in light_descriptor['data_keys'][image_name].keys():
+        img_dict.update(dict(shape=light_descriptor['data_keys'][image_name][
+            'shape']))
     new_descriptor = dict(uid=str(uuid4()), time=time(),
                           run_start=run_start_uid,
-                          data_keys={'img': dict(source='testing',
-                                                 dtype='array'),
-                                     })  # TODO: include shape somehow
+                          data_keys={output_field_name: img_dict})
     yield 'descriptor', new_descriptor
 
     exit_md = None
-    calibration = next(calibration_name_doc_stream_pair)['data']['calibration']
+    calibration = next(calibration_stream)[1]['data']['detector_calibration']
+    pprint(calibration)
     geo = AzimuthalIntegrator()
     geo.setPyFAI(**calibration)
-    for i, (name, ev) in enumerate(name_doc_stream_pair):
+    for i, (name, ev) in enumerate(image_stream):
         if name == 'stop':
             break
         if name != 'event':
