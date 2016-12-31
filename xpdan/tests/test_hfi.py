@@ -290,7 +290,3 @@ def test_mask_hfi(exp_db, an_db, tmp_dir, img_size):
             assert z['data']['mask'].type
             assert_array_equal(z['data']['img'],
                                z2['data']['pe1_image'])
-
-
-def test_blank(exp_db, an_db):
-    pass

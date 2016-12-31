@@ -61,9 +61,11 @@ def db(request):
         'mongo': build_pymongo_backed_broker}
     databroker = param_map[request.param](request)
     yield databroker
+    print('CLEAN DB')
     clean_database(databroker)
 
-@pytest.fixture(scope='session')
+
+@pytest.fixture(scope='module')
 def exp_db(db, tmp_dir, img_size, wavelength):
     print('Making EXP DB')
     mds = db.mds
@@ -84,7 +86,7 @@ def exp_db(db, tmp_dir, img_size, wavelength):
 
 @pytest.fixture(params=[
     # 'sqlite',
-    'mongo'], scope='session')
+    'mongo'], scope='module')
 def an_db(request):
     print('Making AN DB')
     param_map = {
@@ -93,27 +95,27 @@ def an_db(request):
     databroker = param_map[request.param](request)
     yield databroker
     print('CLEAN AN DB')
-    cleanup_dbs(databroker)
+    clean_database(databroker)
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope='module')
 def handler(exp_db):
     h = DataReduction(exp_db=exp_db)
     yield h
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope='module')
 def img_size():
     a = np.random.random_integers(100, 200)
     yield (a, a)
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope='module')
 def wavelength():
     yield 1.15
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope='module')
 def disk_mask(tmp_dir, img_size):
     mask = np.random.random_integers(0, 1, img_size).astype(bool)
     dirn = tmp_dir
