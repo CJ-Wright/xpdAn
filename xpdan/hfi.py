@@ -33,17 +33,16 @@ import types
 def spoof_wavelength_calibration_hfi(stream, *args,
                                      calibration_field='wavelength',
                                      **kwargs):
-    output_field_name = 'wavelength'
+    hfi = spoof_wavelength_calibration_hfi
     _, start_doc = next(stream)
     run_start_uid = str(uuid4())
     new_start_doc = dict(
         uid=run_start_uid, time=time(),
         parents=[start_doc['uid']],
-        hfi=spoof_wavelength_calibration_hfi.__name__,
+        hfi=hfi.__name__,
         provenance=dict(
-            hfi_module=inspect.getmodule(
-                spoof_wavelength_calibration_hfi).__name__,
-            hfi=spoof_wavelength_calibration_hfi.__name__,
+            hfi_module=inspect.getmodule(hfi).__name__,
+            hfi=hfi.__name__,
             process_module='spoof',
             process='spoof',
             kwargs=kwargs,
@@ -52,16 +51,16 @@ def spoof_wavelength_calibration_hfi(stream, *args,
     results = start_doc[calibration_field]
     yield 'start', new_start_doc
 
-    img_dict = dict(source='testing', dtype='float', )
+    data_keys_dict = {'wavelength': dict(source='testing', dtype='float', )}
     new_descriptor = dict(uid=str(uuid4()), time=time(),
                           run_start=run_start_uid,
-                          data_keys={output_field_name: img_dict})
+                          data_keys=data_keys_dict)
     yield 'descriptor', new_descriptor
 
     exit_md = None
     new_event = dict(uid=str(uuid4()), time=time(), timestamps={},
                      descriptor=new_descriptor['uid'],
-                     data={output_field_name: results},
+                     data={'wavelength': results},
                      seq_num=0)
     yield 'event', new_event
 
@@ -76,17 +75,16 @@ def spoof_wavelength_calibration_hfi(stream, *args,
 def spoof_detector_calibration_hfi(stream, *args,
                                    calibration_field='calibration_md',
                                    **kwargs):
-    output_field_name = 'detector_calibration'
+    hfi = spoof_detector_calibration_hfi
     _, start_doc = next(stream)
     run_start_uid = str(uuid4())
     new_start_doc = dict(
         uid=run_start_uid, time=time(),
-        parents=[start_doc['uid'], ],
-        hfi=spoof_detector_calibration_hfi.__name__,
+        parents=[start_doc['uid']],
+        hfi=hfi.__name__,
         provenance=dict(
-            hfi_module=inspect.getmodule(
-                spoof_detector_calibration_hfi).__name__,
-            hfi=spoof_detector_calibration_hfi.__name__,
+            hfi_module=inspect.getmodule(hfi).__name__,
+            hfi=hfi.__name__,
             process_module='spoof',
             process='spoof',
             kwargs=kwargs,
@@ -95,16 +93,17 @@ def spoof_detector_calibration_hfi(stream, *args,
     results = start_doc[calibration_field]
     yield 'start', new_start_doc
 
-    img_dict = dict(source='testing', dtype='object', )
+    data_keys_dict = {'detector_calibration': dict(source='testing',
+                                                   dtype='object', )}
     new_descriptor = dict(uid=str(uuid4()), time=time(),
                           run_start=run_start_uid,
-                          data_keys={output_field_name: img_dict})
+                          data_keys=data_keys_dict)
     yield 'descriptor', new_descriptor
 
     exit_md = None
     new_event = dict(uid=str(uuid4()), time=time(), timestamps={},
                      descriptor=new_descriptor['uid'],
-                     data={output_field_name: results},
+                     data={'detector_calibration': results},
                      seq_num=0)
     yield 'event', new_event
 
@@ -118,16 +117,16 @@ def spoof_detector_calibration_hfi(stream, *args,
 # 1. Dark Subtraction
 def dark_subtraction_hfi(streams, *args, image_name='pe1_image', **kwargs):
     process = subtract
-    output_field_name = 'img'
+    hfi = dark_subtraction_hfi
     light_stream, dark_stream = streams
     run_start_uid = str(uuid4())
     new_start_doc = dict(
         uid=run_start_uid, time=time(),
         parents=[next(s)[1]['uid'] for s in streams],
-        hfi=dark_subtraction_hfi.__name__,
+        hfi=hfi.__name__,
         provenance=dict(
-            hfi_module=inspect.getmodule(dark_subtraction_hfi).__name__,
-            hfi=dark_subtraction_hfi.__name__,
+            hfi_module=inspect.getmodule(hfi).__name__,
+            hfi=hfi.__name__,
             process_module=inspect.getmodule(process).__name__,
             process=process.__name__,
             kwargs=kwargs,
@@ -137,13 +136,14 @@ def dark_subtraction_hfi(streams, *args, image_name='pe1_image', **kwargs):
 
     _, light_descriptor, _, _ = [n for s in streams for n in next(s)]
 
-    img_dict = dict(source='testing', dtype='array', )
+    data_keys_dict = {'img': dict(source='testing', dtype='array', )}
     if 'shape' in light_descriptor['data_keys'][image_name].keys():
-        img_dict.update(dict(shape=light_descriptor['data_keys'][image_name][
-            'shape']))
+        data_keys_dict['img'].update(
+            shape=light_descriptor['data_keys'][image_name]['shape'])
+
     new_descriptor = dict(uid=str(uuid4()), time=time(),
                           run_start=run_start_uid,
-                          data_keys={output_field_name: img_dict})
+                          data_keys=data_keys_dict)
     yield 'descriptor', new_descriptor
 
     exit_md = None
@@ -154,6 +154,7 @@ def dark_subtraction_hfi(streams, *args, image_name='pe1_image', **kwargs):
             break
         if name != 'event':
             raise Exception
+
         try:
             results = process(ev['data'][image_name], dark_image)
         except Exception as e:
@@ -163,7 +164,7 @@ def dark_subtraction_hfi(streams, *args, image_name='pe1_image', **kwargs):
 
         new_event = dict(uid=str(uuid4()), time=time(), timestamps={},
                          descriptor=new_descriptor['uid'],
-                         data={output_field_name: results},
+                         data={'img': results},
                          seq_num=i)
         yield 'event', new_event
 
@@ -177,41 +178,41 @@ def dark_subtraction_hfi(streams, *args, image_name='pe1_image', **kwargs):
 # 2. Polarization Correction
 def polarization_correction_hfi(streams, *args,
                                 image_name='img', **kwargs):
-    output_field_name = 'img'
     process = correct_polarization
+    hfi = polarization_correction_hfi
     image_stream, calibration_stream = streams
-    starts = [next(s) for s in streams]
-    parents = [s['uid'] for n, s in starts]
     run_start_uid = str(uuid4())
-    new_start_doc = dict(uid=run_start_uid, time=time(),
-                         parents=parents,
-                         hfi=polarization_correction_hfi.__name__,
-                         provenance=dict(
-                             hfi_module=sys.modules[__name__].__name__,
-                             hfi=polarization_correction_hfi.__name__,
-                             process_module=inspect.getmodule(
-                                 process).__name__,
-                             process=process.__name__,
-                             kwargs=kwargs,
-                             args=args),
-                         )  # More provenance to be defined (eg environment)
+    new_start_doc = dict(
+        uid=run_start_uid, time=time(),
+        parents=[next(s)[1]['uid'] for s in streams],
+        hfi=hfi.__name__,
+        provenance=dict(
+            hfi_module=inspect.getmodule(hfi).__name__,
+            hfi=hfi.__name__,
+            process_module=inspect.getmodule(process).__name__,
+            process=process.__name__,
+            kwargs=kwargs,
+            args=args),
+    )  # More provenance to be defined (eg environment)
     yield 'start', new_start_doc
 
     _, light_descriptor, _, _ = [n for s in streams for n in next(s)]
-    img_dict = dict(source='testing', dtype='array', )
+
+    data_keys_dict = {'img': dict(source='testing', dtype='array', )}
     if 'shape' in light_descriptor['data_keys'][image_name].keys():
-        img_dict.update(dict(shape=light_descriptor['data_keys'][image_name][
-            'shape']))
+        data_keys_dict['img'].update(
+            shape=light_descriptor['data_keys'][image_name]['shape'])
+
     new_descriptor = dict(uid=str(uuid4()), time=time(),
                           run_start=run_start_uid,
-                          data_keys={output_field_name: img_dict})
+                          data_keys=data_keys_dict)
     yield 'descriptor', new_descriptor
 
     exit_md = None
     calibration = next(calibration_stream)[1]['data']['detector_calibration']
-    pprint(calibration)
     geo = AzimuthalIntegrator()
     geo.setPyFAI(**calibration)
+
     for i, (name, ev) in enumerate(image_stream):
         if name == 'stop':
             break
@@ -239,56 +240,73 @@ def polarization_correction_hfi(streams, *args,
 
 
 # 3. Masking
-def margin_mask_hfi(name_doc_stream_pair,
+def margin_mask_hfi(image_stream,
                     *args,
                     image_name='img',
-                    mask_name_doc_stream_pair=None,
+                    mask_stream=None,
+                    mask_name='mask',
                     **kwargs):
     process = margin
-    _, start = next(name_doc_stream_pair)
-    mask_start = None
-    if mask_name_doc_stream_pair is not None:
-        _, mask_start = next(mask_name_doc_stream_pair)
+    hfi = margin_mask_hfi
+    streams = [image_stream]
+    if mask_stream is not None:
+        streams.append(mask_stream)
     run_start_uid = str(uuid4())
-    parents = [s['uid'] for s in [start]]
-    if mask_start is not None:
-        parents = [s['uid'] for s in [start, mask_start]]
-    new_start_doc = dict(uid=run_start_uid, time=time(),
-                         parents=parents,
-                         hfi=margin_mask_hfi.__name__,
-                         provenance=dict(
-                             hfi_module=inspect.getmodule(
-                                 margin_mask_hfi).__name__,
-                             hfi=margin_mask_hfi.__name__,
-                             process_module=inspect.getmodule(
-                                 process).__name__,
-                             process=process.__name__,
-                             kwargs=kwargs,
-                             args=args))
+    new_start_doc = dict(
+        uid=run_start_uid, time=time(),
+        parents=[next(s)[1]['uid'] for s in streams],
+        hfi=hfi.__name__,
+        provenance=dict(
+            hfi_module=inspect.getmodule(hfi).__name__,
+            hfi=hfi.__name__,
+            process_module=inspect.getmodule(process).__name__,
+            process=process.__name__,
+            kwargs=kwargs,
+            args=args),
+    )  # More provenance to be defined (eg environment)
     yield 'start', new_start_doc
 
-    _, descriptor = next(name_doc_stream_pair)
-    if 'shape' in descriptor['data_keys'][image_name].keys():
-        img_dict = dict(source='testing', dtype='array',
-                        shape=descriptor['data_keys'][image_name][
-                            'shape'])
-    else:
-        img_dict = dict(source='testing', dtype='array', )
+    descriptors = [next(s) for s in streams]
+    img_descriptor = descriptors[0][1]
+    data_keys_dict = {'mask': dict(source='testing', dtype='array', )}
+
+    if 'shape' in img_descriptor['data_keys'][image_name].keys():
+        data_keys_dict['mask'].update(
+            shape=img_descriptor['data_keys'][image_name][
+                'shape'])
 
     new_descriptor = dict(uid=str(uuid4()), time=time(),
                           run_start=run_start_uid,
-                          data_keys=dict(
-                              mask=img_dict))
+                          data_keys=data_keys_dict)
     yield 'descriptor', new_descriptor
 
     exit_md = None
-    for i, (name, ev) in enumerate(name_doc_stream_pair):
+    # Determine if we have one or many masks
+    if mask_stream:
+        mask_doc_name1, mask_doc1 = next(mask_stream)
+        mask_doc_name2, mask_doc2 = next(mask_stream)
+        if mask_doc_name2 == 'stop':
+            tmsk = mask_doc1['data'][mask_name]
+        else:
+            tmsk = chain([(mask_doc_name1, mask_doc1),
+                          (mask_doc_name2, mask_doc2)], mask_stream)
+    else:
+        tmsk = None
+
+    for i, (name, ev) in enumerate(image_stream):
+        if isinstance(tmsk, types.GeneratorType):
+            kwargs['tmsk'] = next(tmsk)[1]['data'][mask_name]
+        else:
+            kwargs['tmsk'] = tmsk
+
         if name == 'stop':
             break
         if name != 'event':
             raise Exception
         try:
             results = process(ev['data'][image_name].shape, kwargs['edge'])
+            if tmsk:
+                results *= tmsk
         except Exception as e:
             exit_md = dict(exit_status='failure', reason=repr(e),
                            traceback=traceback.format_exc())
@@ -416,6 +434,7 @@ def master_mask_hfi(streams, *args, mask_stream=None,
                     mask_name='mask',
                     **kwargs):
     process = mask_img
+    hfi = master_mask_hfi
     image_stream, calibration_stream = streams
     if mask_stream:
         streams.append(mask_stream)
@@ -423,32 +442,32 @@ def master_mask_hfi(streams, *args, mask_stream=None,
     new_start_doc = dict(
         uid=run_start_uid, time=time(),
         parents=[next(s)[1]['uid'] for s in streams],
-        hfi=master_mask_hfi.__name__,
+        hfi=hfi.__name__,
         provenance=dict(
-            hfi_module=inspect.getmodule(master_mask_hfi).__name__,
-            hfi=master_mask_hfi.__name__,
+            hfi_module=inspect.getmodule(hfi).__name__,
+            hfi=hfi.__name__,
             process_module=inspect.getmodule(process).__name__,
             process=process.__name__,
             kwargs=kwargs,
-            args=args)
-    )
+            args=args),
+    )  # More provenance to be defined (eg environment)
     yield 'start', new_start_doc
 
     descriptors = [next(s)[1] for s in streams]
-    mask_dict = dict(source='testing', dtype='array', )
+    data_key_dict = {'mask': dict(source='testing', dtype='array', )}
     if 'shape' in descriptors[0]['data_keys'][image_name].keys():
-        mask_dict.update(dict(
-            shape=descriptors[0]['data_keys'][image_name]['shape']))
+        data_key_dict['mask'].update(
+            shape=descriptors[0]['data_keys'][image_name]['shape'])
 
     new_descriptor = dict(uid=str(uuid4()), time=time(),
                           run_start=run_start_uid,
-                          data_keys=dict(
-                              mask=mask_dict))
+                          data_keys=data_key_dict)
     yield 'descriptor', new_descriptor
 
     exit_md = None
     geo = AzimuthalIntegrator()
     geo.setPyFAI(**next(calibration_stream)[1]['data'][calibration_name])
+
     # Determine if we have one or many masks
     if mask_stream:
         mask_doc_name1, mask_doc1 = next(mask_stream)
@@ -465,6 +484,7 @@ def master_mask_hfi(streams, *args, mask_stream=None,
             kwargs['tmsk'] = next(tmsk)[1]['data'][mask_name]
         else:
             kwargs['tmsk'] = tmsk
+
         if name == 'stop':
             break
         if name != 'event':
@@ -495,7 +515,7 @@ def integrate_hfi(streams, *args, mask_stream=None,
                   mask_name='mask',
                   **kwargs):
     geo = AzimuthalIntegrator()
-    output_field_name = 'iq'
+    hfi = integrate_hfi
     process = geo.integrate1d
     image_stream, calibration_stream = streams
     if mask_stream:
@@ -504,27 +524,25 @@ def integrate_hfi(streams, *args, mask_stream=None,
     new_start_doc = dict(
         uid=run_start_uid, time=time(),
         parents=[next(s)[1]['uid'] for s in streams],
-        hfi=integrate_hfi.__name__,
+        hfi=hfi.__name__,
         provenance=dict(
-            hfi_module=inspect.getmodule(integrate_hfi).__name__,
-            hfi=integrate_hfi.__name__,
+            hfi_module=inspect.getmodule(hfi).__name__,
+            hfi=hfi.__name__,
             process_module=inspect.getmodule(process).__name__,
             process=process.__name__,
             kwargs=kwargs,
-            args=args)
-    )
+            args=args),
+    )  # More provenance to be defined (eg environment)
     yield 'start', new_start_doc
 
     descriptors = [next(s)[1] for s in streams]
-    iq_dict = dict(source='testing', dtype='array',
-                   shape=kwargs['npt'])  # FIXME: add more
-    q_dict = dict(source='testing', dtype='array',
-                  shape=kwargs['npt'])  # FIXME: add more
+    data_key_dict = {'iq': dict(source='testing', dtype='array',
+                                shape=kwargs['npt']),
+                     'q': dict(source='testing', dtype='array',
+                               shape=kwargs['npt'])}  # FIXME: add more
 
     new_descriptor = dict(uid=str(uuid4()), time=time(),
-                          run_start=run_start_uid, data_keys={
-            output_field_name: iq_dict,
-            'q': q_dict})
+                          run_start=run_start_uid, data_keys=data_key_dict)
     yield 'descriptor', new_descriptor
 
     exit_md = None
@@ -559,7 +577,7 @@ def integrate_hfi(streams, *args, mask_stream=None,
 
         new_event = dict(uid=str(uuid4()), time=time(), timestamps={},
                          descriptor=new_descriptor['uid'],
-                         data={output_field_name: results[1],
+                         data={'iq': results[1],
                                'q': results[0]},
                          seq_num=i)
         yield 'event', new_event

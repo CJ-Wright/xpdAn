@@ -621,3 +621,7 @@ def sum_images(event_stream, idxs_list=None):
                         total_img += img
                 yield chain([total_img], rest, ['[{}]'.format(
                     ','.join(map(str, idxs))), event])
+
+
+def db_integrate(img_hdr):
+    pass
