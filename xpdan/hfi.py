@@ -132,6 +132,8 @@ def spoof_detector_calibration_hfi(stream, *args,
             process='spoof',
             kwargs=kwargs,
             args=args),
+        # This could be done by `get_parent` but it is easy to do it now
+        calibration_collection_uid=start_doc['calibration_collection_uid']
     )  # More provenance to be defined (eg environment)
     results = start_doc[calibration_field]
     yield 'start', new_start_doc
