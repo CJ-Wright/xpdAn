@@ -147,7 +147,9 @@ def make_glbl(env_code=0, db=None):
 
     return Glbl
 
-
-env_code = os.environ['XPDAN_SETUP']
+try:
+    env_code = os.environ['XPDAN_SETUP']
+except KeyError:
+    env_code = 1
 print('ENV_CODE = {}'.format(env_code))
 an_glbl = make_glbl(env_code)

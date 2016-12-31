@@ -156,43 +156,6 @@ def test_dark_subtraction_hfi(exp_db, an_db, tmp_dir, img_size):
                                z2['data']['pe1_image'] - dark_img)
 
 
-def test_margin_mask_hfi(exp_db, an_db, tmp_dir, img_size):
-    hdr = exp_db[-1]
-    hfi = margin_mask_hfi
-    process = margin
-    dec_hfi = db_store_single_resource_single_file(
-        an_db, {'mask': (NPYSaver, (tmp_dir,), {})})(hfi)
-    dark_hdr = exp_db(dark_collection_uid=hdr['start']['dark_collection_uid'],
-                      is_dark=True)[0]
-    # Actually run the thing
-    for (n, z), (n2, z2) in zip(dec_hfi(exp_db.restream(hdr, fill=True),
-                                        edge=13, image_name='pe1_image'),
-                                exp_db.restream(hdr, fill=True)):
-        pprint(n)
-        pprint(z)
-        print()
-        if n == 'start':
-            assert z['parents'] == [hdr['start']['uid']]
-            assert z['hfi'] == hfi.__name__
-            for k, expected_v in {'hfi_module': inspect.getmodule(
-                    hfi).__name__, 'hfi': hfi.__name__,
-                                  'args': (), 'kwargs': {'edge': 13},
-                                  'process_module': inspect.getmodule(
-                                      process).__name__,
-                                  'process': process.__name__}.items():
-                assert z['provenance'][k] == expected_v
-
-        if n == 'descriptor':
-            for ss1, ss2 in zip(z['data_keys']['mask']['shape'], img_size):
-                assert ss1 == ss2
-
-        if n == 'stop':
-            assert z['exit_status'] == 'success'
-
-        if n == 'event':
-            assert_array_equal(z['data']['mask'], margin(img_size, 13))
-
-
 def test_polarization_correction_hfi(exp_db, an_db, tmp_dir, img_size):
     hdr = exp_db[-1]
     hfi = spoof_detector_calibration_hfi
@@ -246,52 +209,6 @@ def test_polarization_correction_hfi(exp_db, an_db, tmp_dir, img_size):
                 correct_polarization(geo, z2['data']['pe1_image'], .95))
 
 
-def test_mask_hfi(exp_db, an_db, tmp_dir, img_size):
-    hdr = exp_db[-1]
-    hfi = spoof_detector_calibration_hfi
-    dec_hfi = db_store_single_resource_single_file(
-        an_db, {})(hfi)
-    for a in dec_hfi(exp_db.restream(hdr, fill=True)):
-        pass
-    cal_hdr = an_db[-1]
-
-    hfi = master_mask_hfi
-    process = mask_img
-    dec_hfi = db_store_single_resource_single_file(
-        an_db, {'mask': (NPYSaver, (tmp_dir,), {})})(hfi)
-
-    # Actually run the thing
-    for (n, z), (n2, z2) in zip(dec_hfi((
-            exp_db.restream(hdr, fill=True),
-            an_db.restream(cal_hdr, fill=True)), image_name='pe1_image',
-    ),
-            exp_db.restream(hdr, fill=True)):
-        pprint(n)
-        pprint(z)
-        print()
-        if n == 'start':
-            assert z['parents'] == [hdr['start']['uid'],
-                                    cal_hdr['start']['uid']]
-            assert z['hfi'] == hfi.__name__
-            for k, expected_v in dict(
-                    hfi_module=inspect.getmodule(hfi).__name__,
-                    hfi=hfi.__name__, args=(),
-                    kwargs=dict(),
-                    process_module=inspect.getmodule(process).__name__,
-                    process=process.__name__).items():
-                assert z['provenance'][k] == expected_v
-
-        if n == 'descriptor':
-            for ss1, ss2 in zip(z['data_keys']['mask']['shape'], img_size):
-                assert ss1 == ss2
-
-        if n == 'stop':
-            assert z['exit_status'] == 'success'
-
-        if n == 'event':
-            assert z['data']['mask'].dtype == np.bool
-
-
 def test_integrate_hfi(exp_db, an_db, tmp_dir):
     hdr = exp_db[-1]
     hfi = spoof_detector_calibration_hfi
@@ -339,3 +256,4 @@ def test_integrate_hfi(exp_db, an_db, tmp_dir):
         if n == 'event':
             assert z['data']['iq'].shape[0] == kwargs['npt']
             assert z['data']['q'].shape[0] == kwargs['npt']
+

@@ -2,7 +2,7 @@ from itertools import chain, tee
 
 from xpdan.glbl import an_glbl
 from xpdan.hfi import (dark_subtraction_hfi, spoof_detector_calibration_hfi,
-                       polarization_correction_hfi, master_mask_hfi,
+                       polarization_correction_hfi,
                        integrate_hfi)
 
 
