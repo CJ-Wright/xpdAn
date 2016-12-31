@@ -1,13 +1,27 @@
+##############################################################################
+#
+# xpdan            by Billinge Group
+#                   Simon J. L. Billinge sb2896@columbia.edu
+#                   (c) 2016 trustees of Columbia University in the City of
+#                        New York.
+#                   All rights reserved
+#
+# File coded by:    Timothy Liu, Christopher J. Wright
+#
+# See AUTHORS.txt for a list of people who contributed.
+# See LICENSE.txt for license information.
+#
+##############################################################################
 import os
 import shutil
 import tempfile
 from time import strftime
 
 import matplotlib
-from databroker import db
 
 matplotlib.use('qt4agg')
 from xpdan.simulation import build_pymongo_backed_broker
+
 
 def make_glbl(env_code=0, db=None):
     """ make a instance of Glbl class
@@ -42,9 +56,8 @@ def make_glbl(env_code=0, db=None):
     if int(env_code) == 1:
         BASE_DIR = tempfile.mkdtemp()
         print('creating {}'.format(BASE_DIR))
-        db = build_pymongo_backed_broker()
-    # simulation
     elif int(env_code) == 2:
+        # simulation
         BASE_DIR = os.getcwd()
         db = build_pymongo_backed_broker()
     else:
@@ -137,4 +150,4 @@ def make_glbl(env_code=0, db=None):
 
 env_code = os.environ['XPDAN_SETUP']
 print('ENV_CODE = {}'.format(env_code))
-an_glbl = make_glbl(env_code, db=db)
+an_glbl = make_glbl(env_code)
