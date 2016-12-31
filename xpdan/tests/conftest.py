@@ -36,17 +36,24 @@ if sys.version_info >= (3, 0):
     pass
 
 
-def cleanup_dbs(database):
-    print('DROPPING DBS')
+def clean_database(database):
     for sub_db_name in ['mds', 'fs']:
         sub_db = getattr(database, sub_db_name)
-        print(sub_db.config['database'])
         sub_db._connection.drop_database(sub_db.config['database'])
+
+
+@pytest.fixture(scope='module')
+def mk_glbl(exp_db):
+    a = make_glbl(1, exp_db)
+    yield a
+    if os.path.exists(a.base):
+        print('removing {}'.format(a.base))
+        shutil.rmtree(a.base)
 
 
 @pytest.fixture(params=[
     # 'sqlite',
-    'mongo'], scope='session')
+    'mongo'], scope='module')
 def db(request):
     print('Making DB')
     param_map = {
@@ -54,9 +61,7 @@ def db(request):
         'mongo': build_pymongo_backed_broker}
     databroker = param_map[request.param](request)
     yield databroker
-    print('CLEAN DB')
-    cleanup_dbs(databroker)
-
+    clean_database(databroker)
 
 @pytest.fixture(scope='session')
 def exp_db(db, tmp_dir, img_size, wavelength):
@@ -75,13 +80,6 @@ def exp_db(db, tmp_dir, img_size, wavelength):
     insert_imgs(mds, fs, 5, img_size, tmp_dir, pi_name='chris', bt_safN=2,
                 **cal_dict)
     yield db
-
-
-@pytest.fixture(scope='session')
-def fuzzdb(exp_db):
-    print('Making FZ DB')
-    fb = FuzzyBroker(exp_db.mds, exp_db.fs)
-    yield fb
 
 
 @pytest.fixture(params=[
@@ -111,24 +109,14 @@ def img_size():
 
 
 @pytest.fixture(scope='session')
-def mk_glbl():
-    a = make_glbl(1)
-    yield a
-    if os.path.exists(a.base):
-        print('removing {}'.format(a.base))
-        shutil.rmtree(a.base)
-        cleanup_dbs(a.exp_db)
-
-
-@pytest.fixture(scope='session')
 def wavelength():
     yield 1.15
 
 
 @pytest.fixture(scope='session')
-def disk_mask(mk_glbl, img_size):
+def disk_mask(tmp_dir, img_size):
     mask = np.random.random_integers(0, 1, img_size).astype(bool)
-    dirn = mk_glbl.base
+    dirn = tmp_dir
     file_name_msk = os.path.join(dirn, 'mask_test' + '.msk')
     assert ~os.path.exists(file_name_msk)
     fit2d_save(mask, 'mask_test', dirn)
@@ -140,7 +128,12 @@ def disk_mask(mk_glbl, img_size):
     yield (file_name_msk, file_name, mask)
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope='module')
+def fuzzdb(exp_db):
+    yield FuzzyBroker(exp_db.mds, exp_db.fs)
+
+
+@pytest.fixture(scope='module')
 def tmp_dir():
     td = tempfile.mkdtemp()
     print('creating {}'.format(td))
