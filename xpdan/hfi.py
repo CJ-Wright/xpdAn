@@ -27,12 +27,34 @@ import inspect
 from pprint import pprint
 from itertools import chain
 import types
+import itertools
 
 
 # -1. Wavelength Calibration (Pending @sghose)
 def spoof_wavelength_calibration_hfi(stream, *args,
                                      calibration_field='wavelength',
                                      **kwargs):
+    """Create wavelength calibration stream based off of data in raw data
+    header.
+
+    Parameters
+    ----------
+    stream: generator
+        Stream of raw data from ``db.restream(hdr)``
+    calibration_field: str, optional
+        The name of the field where the calibration data is stored. Defaults to
+        wavelength
+
+    Yields
+    -------
+    name, document:
+        The name and documents for the wavelength calibration
+
+    Warnings
+    --------
+    This performs no analysis of the data, the wavelength must already be in
+    the raw data header.
+    """
     hfi = spoof_wavelength_calibration_hfi
     _, start_doc = next(stream)
     run_start_uid = str(uuid4())
@@ -75,6 +97,27 @@ def spoof_wavelength_calibration_hfi(stream, *args,
 def spoof_detector_calibration_hfi(stream, *args,
                                    calibration_field='calibration_md',
                                    **kwargs):
+    """Create detector calibration stream based off of data in raw data
+        header.
+
+    Parameters
+    ----------
+    stream: generator
+        Stream of raw data from ``db.restream(hdr)``
+    calibration_field: str, optional
+        The name of the field where the calibration data is stored. Defaults to
+        calibration_md
+
+    Yields
+    -------
+    name, document:
+        The name and documents for the detector calibration
+
+    Warnings
+    --------
+    This performs no analysis of the data, the detector calibration must
+    already be in the raw data header.
+    """
     hfi = spoof_detector_calibration_hfi
     _, start_doc = next(stream)
     run_start_uid = str(uuid4())
@@ -115,11 +158,34 @@ def spoof_detector_calibration_hfi(stream, *args,
 
 
 # 1. Dark Subtraction
-def dark_subtraction_hfi(streams, *args, image_name='pe1_image', **kwargs):
+def dark_subtraction_hfi(streams, *args, image_name='pe1_image',
+                         dark_event_number=0, **kwargs):
+    """Create detector calibration stream based off of data in raw data
+        header.
+
+    Parameters
+    ----------
+    streams: tuple of generators
+        Streams of raw data and dark data from
+        ``(db.restream(hdr), db.restream(dark_hdr))``
+    image_name: str, optional
+        The name of the field where the image data is stored. Defaults to
+        'pe1_image'
+    dark_event_number: int, optional
+        Which dark event to use for subtraction, defaults to the first dark
+    Yields
+    -------
+    name, document:
+        The name and documents for the dark subtraction
+
+    """
     process = subtract
     hfi = dark_subtraction_hfi
     light_stream, dark_stream = streams
     run_start_uid = str(uuid4())
+
+    # We track the kwargs, so just tack it on
+    kwargs.update(dark_event_number=dark_event_number)
     new_start_doc = dict(
         uid=run_start_uid, time=time(),
         parents=[next(s)[1]['uid'] for s in streams],
@@ -147,7 +213,9 @@ def dark_subtraction_hfi(streams, *args, image_name='pe1_image', **kwargs):
     yield 'descriptor', new_descriptor
 
     exit_md = None
-    _, dark_event = next(dark_stream)
+    _, dark_event = next(itertools.islice(dark_stream,
+                                          kwargs['dark_event_number'],
+                                          kwargs['dark_event_number'] + 1))
     dark_image = dark_event['data'][image_name]
     for i, (name, ev) in enumerate(light_stream):
         if name == 'stop':
@@ -178,6 +246,23 @@ def dark_subtraction_hfi(streams, *args, image_name='pe1_image', **kwargs):
 # 2. Polarization Correction
 def polarization_correction_hfi(streams, *args,
                                 image_name='img', **kwargs):
+    """Create detector calibration stream based off of data in raw data
+        header.
+
+    Parameters
+    ----------
+    streams: tuple of generators
+        Streams of raw data and detector calibration data from
+        ``(db.restream(hdr), db.restream(calibration_hdr))``
+    image_name: str, optional
+        The name of the field where the image data is stored. Defaults to
+        'img'
+    Yields
+    -------
+    name, document:
+        The name and documents for the polarization correction
+
+    """
     process = correct_polarization
     hfi = polarization_correction_hfi
     image_stream, calibration_stream = streams
@@ -246,6 +331,27 @@ def margin_mask_hfi(image_stream,
                     mask_stream=None,
                     mask_name='mask',
                     **kwargs):
+    """Create margin mask stream based off of data in raw data
+        header.
+
+    Parameters
+    ----------
+    image_stream: generator
+        Streams of raw data data from ``db.restream(hdr)``
+    image_name: str, optional
+        The name of the field where the image data is stored. Defaults to 'img'
+    mask_stream: generator, optional
+        Stream of mask data which is used as a base for subsequent masks.
+        Defaults to no additional mask data
+    mask_name: str, optional
+        The name of the field where the mask data is stored. Defaults to 'mask'
+
+    Yields
+    -------
+    name, document:
+        The name and documents for the margin mask
+
+    """
     process = margin
     hfi = margin_mask_hfi
     streams = [image_stream]
@@ -325,6 +431,7 @@ def margin_mask_hfi(image_stream,
     yield 'stop', new_stop
 
 
+'''
 def lower_threshold_hfi(name_doc_stream_pair, *args,
                         image_name='img',
                         **kwargs):
@@ -428,11 +535,34 @@ def upper_threshold_hfi(name_doc_stream_pair, *args,
                     run_start=run_start_uid, **exit_md)
     yield 'stop', new_stop
 
+'''
+
 
 def master_mask_hfi(streams, *args, mask_stream=None,
                     image_name='img', calibration_name='detector_calibration',
                     mask_name='mask',
                     **kwargs):
+    """Create detector calibration stream based off of data in raw data
+        header.
+
+    Parameters
+    ----------
+    streams: tuple of generators
+        Streams of raw data and detector calibration data from
+        ``db.restream(hdr), db.restream(calibration_hdr)``
+    image_name: str, optional
+        The name of the field where the image data is stored. Defaults to 'img'
+    mask_stream: generator, optional
+        Stream of mask data which is used as a base for subsequent masks.
+        Defaults to no additional mask data
+    mask_name: str, optional
+        The name of the field where the mask data is stored. Defaults to 'mask'
+
+    Yields
+    -------
+    name, document:
+        The name and documents for the margin mask
+    """
     process = mask_img
     hfi = master_mask_hfi
     image_stream, calibration_stream = streams
