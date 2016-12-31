@@ -287,3 +287,52 @@ def test_mask_hfi(exp_db, an_db, tmp_dir, img_size):
 
         if n == 'event':
             assert z['data']['mask'].dtype == np.bool
+
+
+def test_integrate_hfi(exp_db, an_db, tmp_dir, img_size):
+    hdr = exp_db[-1]
+    hfi = spoof_detector_calibration_hfi
+    dec_hfi = db_store_single_resource_single_file(
+        an_db, {})(hfi)
+    for a in dec_hfi(exp_db.restream(hdr, fill=True)):
+        pass
+    cal_hdr = an_db[-1]
+
+    hfi = integrate_hfi
+    geo = AzimuthalIntegrator
+    process = geo.integrate1d
+    dec_hfi = db_store_single_resource_single_file(
+        an_db, {'iq': (NPYSaver, (tmp_dir,), {}),
+                'q': (NPYSaver, (tmp_dir,), {})})(hfi)
+
+    kwargs = dict(npt=2000)
+    # Actually run the thing
+    for (n, z), (n2, z2) in zip(dec_hfi((
+            exp_db.restream(hdr, fill=True),
+            an_db.restream(cal_hdr, fill=True)), image_name='pe1_image',
+            **kwargs),
+            exp_db.restream(hdr, fill=True)):
+        pprint(n)
+        pprint(z)
+        print()
+        if n == 'start':
+            assert z['parents'] == [hdr['start']['uid'],
+                                    cal_hdr['start']['uid']]
+            assert z['hfi'] == hfi.__name__
+            for k, expected_v in dict(
+                    hfi_module=inspect.getmodule(hfi).__name__,
+                    hfi=hfi.__name__, args=(),
+                    kwargs=kwargs,
+                    process_module=inspect.getmodule(process).__name__,
+                    process=process.__name__).items():
+                assert z['provenance'][k] == expected_v
+
+        if n == 'descriptor':
+            assert z['data_keys']['iq']['shape'] == kwargs['npt']
+
+        if n == 'stop':
+            assert z['exit_status'] == 'success'
+
+        if n == 'event':
+            assert z['data']['iq'].shape[0] == kwargs['npt']
+            assert z['data']['q'].shape[0] == kwargs['npt']

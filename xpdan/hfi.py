@@ -41,7 +41,8 @@ def spoof_wavelength_calibration_hfi(stream, *args,
         parents=[start_doc['uid']],
         hfi=spoof_wavelength_calibration_hfi.__name__,
         provenance=dict(
-            hfi_module=inspect.getmodule(spoof_wavelength_calibration_hfi).__name__,
+            hfi_module=inspect.getmodule(
+                spoof_wavelength_calibration_hfi).__name__,
             hfi=spoof_wavelength_calibration_hfi.__name__,
             process_module='spoof',
             process='spoof',
@@ -490,10 +491,11 @@ def master_mask_hfi(streams, *args, mask_stream=None,
 
 # 4. Integration
 def integrate_hfi(streams, *args, mask_stream=None,
-                  image_name='img', calibration_name='calibration',
+                  image_name='img', calibration_name='detector_calibration',
                   mask_name='mask',
                   **kwargs):
     geo = AzimuthalIntegrator()
+    output_field_name = 'iq'
     process = geo.integrate1d
     image_stream, calibration_stream = streams
     if mask_stream:
@@ -502,10 +504,10 @@ def integrate_hfi(streams, *args, mask_stream=None,
     new_start_doc = dict(
         uid=run_start_uid, time=time(),
         parents=[next(s)[1]['uid'] for s in streams],
-        hfi=margin_mask_hfi.__name__,
+        hfi=integrate_hfi.__name__,
         provenance=dict(
-            hfi_module=inspect.getmodule(master_mask_hfi).__name__,
-            hfi=margin_mask_hfi.__name__,
+            hfi_module=inspect.getmodule(integrate_hfi).__name__,
+            hfi=integrate_hfi.__name__,
             process_module=inspect.getmodule(process).__name__,
             process=process.__name__,
             kwargs=kwargs,
@@ -513,28 +515,26 @@ def integrate_hfi(streams, *args, mask_stream=None,
     )
     yield 'start', new_start_doc
 
-    descriptors = [next(s) for n, s in streams]
-    if 'shape' in descriptors[0]['data_keys'][image_name].keys():
-        mask_dict = dict(
-            source='testing', dtype='array',
-            shape=descriptors[0]['data_keys'][image_name]['shape'])
-    else:
-        mask_dict = dict(source='testing', dtype='array', )
+    descriptors = [next(s)[1] for s in streams]
+    iq_dict = dict(source='testing', dtype='array',
+                   shape=kwargs['npt'])  # FIXME: add more
+    q_dict = dict(source='testing', dtype='array',
+                  shape=kwargs['npt'])  # FIXME: add more
 
     new_descriptor = dict(uid=str(uuid4()), time=time(),
-                          run_start=run_start_uid,
-                          data_keys=dict(
-                              mask=mask_dict))
+                          run_start=run_start_uid, data_keys={
+            output_field_name: iq_dict,
+            'q': q_dict})
     yield 'descriptor', new_descriptor
 
     exit_md = None
-    geo.setPyFAI(**next(calibration_stream)['data'][calibration_name])
+    geo.setPyFAI(**next(calibration_stream)[1]['data'][calibration_name])
     # Determine if we have one or many masks
-    if mask_stream:
+    if mask_stream is not None:
         mask_doc_name1, mask_doc1 = next(mask_stream)
         mask_doc_name2, mask_doc2 = next(mask_stream)
         if mask_doc_name2 == 'stop':
-            tmsk = ~mask_doc1['data'][mask_name]
+            tmsk = mask_doc1['data'][mask_name]
         else:
             tmsk = chain([(mask_doc_name1, mask_doc1),
                           (mask_doc_name2, mask_doc2)], mask_stream)
@@ -543,8 +543,9 @@ def integrate_hfi(streams, *args, mask_stream=None,
     for i, (name, ev) in enumerate(image_stream):
         if isinstance(tmsk, types.GeneratorType):
             kwargs['mask'] = ~next(tmsk)[1]['data'][mask_name]
-        else:
-            kwargs['mask'] = tmsk
+        elif tmsk is not None:
+            kwargs['mask'] = ~tmsk
+
         if name == 'stop':
             break
         if name != 'event':
@@ -558,7 +559,8 @@ def integrate_hfi(streams, *args, mask_stream=None,
 
         new_event = dict(uid=str(uuid4()), time=time(), timestamps={},
                          descriptor=new_descriptor['uid'],
-                         data={'mask': results},
+                         data={output_field_name: results[1],
+                               'q': results[0]},
                          seq_num=i)
         yield 'event', new_event
 
