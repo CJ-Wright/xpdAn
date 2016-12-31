@@ -255,13 +255,13 @@ def test_mask_hfi(exp_db, an_db, tmp_dir, img_size):
     hfi = master_mask_hfi
     process = mask_img
     dec_hfi = db_store_single_resource_single_file(
-        an_db, {'img': (NPYSaver, (tmp_dir,), {})})(hfi)
+        an_db, {'mask': (NPYSaver, (tmp_dir,), {})})(hfi)
 
     # Actually run the thing
     for (n, z), (n2, z2) in zip(dec_hfi((
             exp_db.restream(hdr, fill=True),
             an_db.restream(cal_hdr, fill=True)), image_name='pe1_image',
-            ),
+    ),
             exp_db.restream(hdr, fill=True)):
         pprint(n)
         pprint(z)
@@ -270,13 +270,12 @@ def test_mask_hfi(exp_db, an_db, tmp_dir, img_size):
             assert z['parents'] == [hdr['start']['uid'],
                                     cal_hdr['start']['uid']]
             assert z['hfi'] == hfi.__name__
-            for k, expected_v in {'hfi_module': inspect.getmodule(
-                    hfi).__name__, 'hfi': hfi.__name__,
-                                  'args': (),
-                                  'kwargs': dict(polarization_factor=.95),
-                                  'process_module': inspect.getmodule(
-                                      process).__name__,
-                                  'process': process.__name__}.items():
+            for k, expected_v in dict(
+                    hfi_module=inspect.getmodule(hfi).__name__,
+                    hfi=hfi.__name__, args=(),
+                    kwargs=dict(),
+                    process_module=inspect.getmodule(process).__name__,
+                    process=process.__name__).items():
                 assert z['provenance'][k] == expected_v
 
         if n == 'descriptor':
@@ -287,6 +286,4 @@ def test_mask_hfi(exp_db, an_db, tmp_dir, img_size):
             assert z['exit_status'] == 'success'
 
         if n == 'event':
-            assert z['data']['mask'].type
-            assert_array_equal(z['data']['img'],
-                               z2['data']['pe1_image'])
+            assert z['data']['mask'].dtype == np.bool

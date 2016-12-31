@@ -410,22 +410,22 @@ def upper_threshold_hfi(name_doc_stream_pair, *args,
     yield 'stop', new_stop
 
 
-def master_mask_hfi(image_stream, calibration_stream, *args, mask_stream=None,
-                    image_name='img', calibration_name='calibration',
+def master_mask_hfi(streams, *args, mask_stream=None,
+                    image_name='img', calibration_name='detector_calibration',
                     mask_name='mask',
                     **kwargs):
     process = mask_img
-    streams = [image_stream, calibration_stream]
+    image_stream, calibration_stream = streams
     if mask_stream:
         streams.append(mask_stream)
     run_start_uid = str(uuid4())
     new_start_doc = dict(
         uid=run_start_uid, time=time(),
         parents=[next(s)[1]['uid'] for s in streams],
-        hfi=margin_mask_hfi.__name__,
+        hfi=master_mask_hfi.__name__,
         provenance=dict(
             hfi_module=inspect.getmodule(master_mask_hfi).__name__,
-            hfi=margin_mask_hfi.__name__,
+            hfi=master_mask_hfi.__name__,
             process_module=inspect.getmodule(process).__name__,
             process=process.__name__,
             kwargs=kwargs,
@@ -433,13 +433,11 @@ def master_mask_hfi(image_stream, calibration_stream, *args, mask_stream=None,
     )
     yield 'start', new_start_doc
 
-    descriptors = [next(s) for n, s in streams]
+    descriptors = [next(s)[1] for s in streams]
+    mask_dict = dict(source='testing', dtype='array', )
     if 'shape' in descriptors[0]['data_keys'][image_name].keys():
-        mask_dict = dict(
-            source='testing', dtype='array',
-            shape=descriptors[0]['data_keys'][image_name]['shape'])
-    else:
-        mask_dict = dict(source='testing', dtype='array', )
+        mask_dict.update(dict(
+            shape=descriptors[0]['data_keys'][image_name]['shape']))
 
     new_descriptor = dict(uid=str(uuid4()), time=time(),
                           run_start=run_start_uid,
@@ -449,7 +447,7 @@ def master_mask_hfi(image_stream, calibration_stream, *args, mask_stream=None,
 
     exit_md = None
     geo = AzimuthalIntegrator()
-    geo.setPyFAI(**next(calibration_stream)['data'][calibration_name])
+    geo.setPyFAI(**next(calibration_stream)[1]['data'][calibration_name])
     # Determine if we have one or many masks
     if mask_stream:
         mask_doc_name1, mask_doc1 = next(mask_stream)
@@ -491,13 +489,13 @@ def master_mask_hfi(image_stream, calibration_stream, *args, mask_stream=None,
 
 
 # 4. Integration
-def integrate_hfi(image_stream, calibration_stream, *args, mask_stream=None,
+def integrate_hfi(streams, *args, mask_stream=None,
                   image_name='img', calibration_name='calibration',
                   mask_name='mask',
                   **kwargs):
     geo = AzimuthalIntegrator()
     process = geo.integrate1d
-    streams = [image_stream, calibration_stream]
+    image_stream, calibration_stream = streams
     if mask_stream:
         streams.append(mask_stream)
     run_start_uid = str(uuid4())
