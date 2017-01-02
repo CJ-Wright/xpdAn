@@ -31,9 +31,9 @@ import itertools
 
 
 # -1. Wavelength Calibration (Pending @sghose)
-def spoof_wavelength_calibration_hfi(stream, *args,
-                                     calibration_field='wavelength',
-                                     **kwargs):
+def spoof_wavelength_calibration_hfi(stream: types.GeneratorType, *args,
+                                     calibration_field: str ='wavelength',
+                                     **kwargs) -> types.GeneratorType:
     """Create wavelength calibration stream based off of data in raw data
     header.
 
@@ -94,9 +94,9 @@ def spoof_wavelength_calibration_hfi(stream, *args,
 
 
 # 0. Detector Calibration
-def spoof_detector_calibration_hfi(stream, *args,
-                                   calibration_field='calibration_md',
-                                   **kwargs):
+def spoof_detector_calibration_hfi(stream: types.GeneratorType, *args,
+                                   calibration_field: str ='calibration_md',
+                                   **kwargs) -> types.GeneratorType:
     """Create detector calibration stream based off of data in raw data
         header.
 

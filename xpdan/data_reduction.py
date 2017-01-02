@@ -622,3 +622,78 @@ def sum_images(event_stream, idxs_list=None):
                         total_img += img
                 yield chain([total_img], rest, ['[{}]'.format(
                     ','.join(map(str, idxs))), event])
+
+
+def db_integrate(exp_db, an_db, img_hdr,
+                 dark_hdr=None, dark_kwargs=None,
+                 detector_calibration_hdr=None,
+                 mask_hdr=None, mask_kwargs=None,
+                 polarization_kwargs=None,
+                 integration_kwargs=None,
+                 ):
+    if dark_kwargs is None:
+        dark_kwargs = {}
+    if mask_kwargs is None:
+        mask_kwargs = {}
+    if integration_kwargs is None:
+        integration_kwargs = {}
+    if polarization_kwargs is None:
+        polarization_kwargs = {}
+
+    # If None go get it and use the latest
+    if dark_hdr is None:
+        dark_hdr = exp_db(dark_uid=img_hdr['sc_dk_field_uid'],
+                          dark_frame=True)[0]
+    dark_corrected_stream = dark_subtraction_hfi((exp_db.restream(img_hdr),
+                                                  exp_db.restream(dark_hdr)),
+                                                 **dark_kwargs)
+    # If None go get it
+    if detector_calibration_hdr is None:
+        detector_calibration_hdr = an_db(
+            calibration_collection_uid=img_hdr['calibration_collection_uid'])
+        if len(detector_calibration_hdr) > 0:
+            detector_calibration_hdr = detector_calibration_hdr[0]
+        # If none exist make one
+        else:
+            calibration_img_hdr = exp_db(
+                calibration_collection_uid=img_hdr[
+                    'calibration_collection_uid'])[0]
+            calibration_stream = spoof_detector_calibration_hfi(
+                exp_db.restream(calibration_img_hdr))
+            for name, doc in calibration_stream:
+                if name == 'start':
+                    calibration_uid = doc['uid']
+                pass
+            detector_calibration_hdr = an_db[calibration_uid]
+
+    polarization_corrected_stream = polarization_correction_hfi(
+        (dark_corrected_stream, an_db.restream(detector_calibration_hdr)),
+        **polarization_kwargs)
+    # masks
+    # If string 'None' do nothing
+    if mask_hdr is 'None':
+        pre_integration_stream = polarization_corrected_stream
+        mask_stream = None
+    # If python None create the mask
+    elif mask_hdr is None:
+        pre_integration_stream, pre_integration_stream2 = tee(
+            polarization_corrected_stream, 2)
+        mask_stream = master_mask_hfi((pre_integration_stream2,
+                                       an_db.restream(
+                                           detector_calibration_hdr))
+                                      , **mask_kwargs)
+    # Otherwise use the provided mask
+    else:
+        mask_stream = an_db.restream(mask_hdr)
+        pre_integration_stream = polarization_corrected_stream
+
+    iq_stream = integrate_hfi((pre_integration_stream,
+                               an_db.restream(detector_calibration_hdr)),
+                              mask_stream=mask_stream,
+                              **integration_kwargs)
+
+    for name, doc in iq_stream:
+        if name == 'start':
+            integrated_uid = doc['uid']
+        pass
+    return integrated_uid
