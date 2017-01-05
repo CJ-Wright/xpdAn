@@ -21,11 +21,13 @@ import tifffile as tif
 import yaml
 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 
-from .glbl import an_glbl
+from .conf_glbl import an_glbl
 from .tools import mask_img, decompress_mask
 from .utils import _clean_info, _timestampstr
 from xpdan.io import read_fit2d_msk
 from .hfi import *
+from redsky.streamer import *
+from redsky.savers import *
 
 # top definition for minimal impacts on the code
 
@@ -624,12 +626,13 @@ def sum_images(event_stream, idxs_list=None):
                     ','.join(map(str, idxs))), event])
 
 
-def db_integrate(exp_db, an_db, img_hdr,
+def db_integrate(img_hdr,
                  dark_hdr=None, dark_kwargs=None,
                  detector_calibration_hdr=None,
                  mask_hdr=None, mask_kwargs=None,
                  polarization_kwargs=None,
                  integration_kwargs=None,
+                 glbl=an_glbl
                  ):
     if dark_kwargs is None:
         dark_kwargs = {}
@@ -642,32 +645,39 @@ def db_integrate(exp_db, an_db, img_hdr,
 
     # If None go get it and use the latest
     if dark_hdr is None:
-        dark_hdr = exp_db(uid=img_hdr['sc_dk_field_uid'],
-                          dark_frame=True)[0]
-    dark_corrected_stream = dark_subtraction_hfi((exp_db.restream(img_hdr),
-                                                  exp_db.restream(dark_hdr)),
-                                                 **dark_kwargs)
+        dark_hdr = glbl.exp_db(dark_uid=img_hdr['start']['sc_dk_field_uid'],
+                               dark_frame=True)[0]
+    dark_corrected_stream = db_store_single_resource_single_file(
+        glbl.an_db, {'img': (NPYSaver, (glbl.usrAnalysis_dir, ()), {})})(
+        dark_subtraction_hfi)((glbl.exp_db.restream(img_hdr),
+                               glbl.exp_db.restream(dark_hdr)),
+                              **dark_kwargs)
     # If None go get it
     if detector_calibration_hdr is None:
-        detector_calibration_hdr = an_db(
-            calibration_collection_uid=img_hdr['calibration_collection_uid'])
+        detector_calibration_hdr = glbl.an_db(
+            calibration_collection_uid=img_hdr['start'][
+                'calibration_collection_uid'])
         if len(detector_calibration_hdr) > 0:
             detector_calibration_hdr = detector_calibration_hdr[0]
         # If none exist make one
         else:
-            calibration_img_hdr = exp_db(
-                calibration_collection_uid=img_hdr[
-                    'calibration_collection_uid'])[0]
-            calibration_stream = spoof_detector_calibration_hfi(
-                exp_db.restream(calibration_img_hdr))
+            calibration_img_hdr = glbl.exp_db(
+                calibration_collection_uid=img_hdr['start']
+                ['calibration_collection_uid'])[0]
+            calibration_stream = db_store_single_resource_single_file(
+                glbl.an_db)(spoof_detector_calibration_hfi)(
+                glbl.exp_db.restream(calibration_img_hdr))
             for name, doc in calibration_stream:
                 if name == 'start':
                     calibration_uid = doc['uid']
                 pass
-            detector_calibration_hdr = an_db[calibration_uid]
+            detector_calibration_hdr = glbl.an_db[calibration_uid]
 
-    polarization_corrected_stream = polarization_correction_hfi(
-        (dark_corrected_stream, an_db.restream(detector_calibration_hdr)),
+    polarization_corrected_stream = db_store_single_resource_single_file(
+        glbl.an_db, {'img': (NPYSaver, (glbl.usrAnalysis_dir, ()), {})})(
+        polarization_correction_hfi)(
+        (dark_corrected_stream,
+         glbl.an_db.restream(detector_calibration_hdr)),
         **polarization_kwargs)
     # masks
     # If string 'None' do nothing
@@ -678,19 +688,22 @@ def db_integrate(exp_db, an_db, img_hdr,
     elif mask_hdr is None:
         pre_integration_stream, pre_integration_stream2 = tee(
             polarization_corrected_stream, 2)
-        mask_stream = master_mask_hfi((pre_integration_stream2,
-                                       an_db.restream(
-                                           detector_calibration_hdr))
-                                      , **mask_kwargs)
+        mask_stream = db_store_single_resource_single_file(
+            glbl.an_db, {'mask': (NPYSaver, (glbl.usrAnalysis_dir, ()), {})})(
+            master_mask_hfi)(
+            (pre_integration_stream2,
+             glbl.an_db.restream(detector_calibration_hdr)), **mask_kwargs)
     # Otherwise use the provided mask
     else:
-        mask_stream = an_db.restream(mask_hdr)
+        mask_stream = glbl.an_db.restream(mask_hdr)
         pre_integration_stream = polarization_corrected_stream
 
-    iq_stream = integrate_hfi((pre_integration_stream,
-                               an_db.restream(detector_calibration_hdr)),
-                              mask_stream=mask_stream,
-                              **integration_kwargs)
+    iq_stream = db_store_single_resource_single_file(
+        glbl.an_db, {'iq': (NPYSaver, (glbl.usrAnalysis_dir, ()), {})})(
+        integrate_hfi)((pre_integration_stream,
+                        glbl.an_db.restream(detector_calibration_hdr)),
+                       mask_stream=mask_stream,
+                       **integration_kwargs)
 
     for name, doc in iq_stream:
         if name == 'start':

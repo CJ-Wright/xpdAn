@@ -38,16 +38,17 @@ def insert_imgs(mds, fs, n, shape, save_dir=tempfile.mkdtemp(),
 
     """
     beamtime_uid = str(uuid4())
+
     # Insert the dark images
     dark_img = np.ones(shape)
     dark_uid = str(uuid4())
     run_start = mds.insert_run_start(uid=str(uuid4()), time=time.time(),
                                      name='test-dark', dark_uid=dark_uid,
                                      beamtime_uid=beamtime_uid,
-                                     is_dark_img=True, **kwargs)
+                                     dark_frame=True, **kwargs)
     data_keys = {
         'pe1_image': dict(source='testing', external='FILESTORE:',
-                    dtype='array', shape=dark_img.shape)}
+                          dtype='array', shape=dark_img.shape)}
     data_hdr = dict(run_start=run_start,
                     data_keys=data_keys,
                     time=time.time(), uid=str(uuid4()))
@@ -70,9 +71,10 @@ def insert_imgs(mds, fs, n, shape, save_dir=tempfile.mkdtemp(),
                         uid=str(uuid4()),
                         time=time.time())
 
+    # Insert light images
     imgs = [np.ones(shape)] * n
     run_start = mds.insert_run_start(uid=str(uuid4()), time=time.time(),
-                                     name='test', dark_uid=dark_uid,
+                                     name='test', sc_dk_field_uid=dark_uid,
                                      beamtime_uid=beamtime_uid,
                                      **kwargs)
     data_keys = {

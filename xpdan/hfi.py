@@ -652,7 +652,9 @@ def integrate_hfi(streams, *args, mask_stream=None,
     process = geo.integrate1d
     image_stream, calibration_stream = streams
     if mask_stream:
-        streams.append(mask_stream)
+        temp_streams = list(streams)
+        temp_streams.append(mask_stream)
+        streams = tuple(temp_streams)
     run_start_uid = str(uuid4())
     new_start_doc = dict(
         uid=run_start_uid, time=time(),

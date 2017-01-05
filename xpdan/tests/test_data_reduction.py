@@ -19,7 +19,7 @@ import numpy as np
 import pytest
 
 from xpdan.data_reduction import integrate_and_save, sum_images, \
-    integrate_and_save_last, save_tiff, save_last_tiff
+    integrate_and_save_last, save_tiff, db_integrate
 
 sum_idx_values = (
     None, 'all', [1, 2, 3], [(1, 3)], [[1, 2, 3], [2, 3]], [[1, 3], (1, 3)])
@@ -136,3 +136,9 @@ def test_sum_logic_smoke(exp_db, handler, idxs):
         assert len(list(a)) == 1
     else:
         assert len(list(a)) == len(idxs)
+
+
+def test_db_integrate(exp_db, mk_glbl):
+    uid = db_integrate(exp_db[-1], glbl=mk_glbl,
+                       integration_kwargs={'npt': 2200})
+    assert uid is not None

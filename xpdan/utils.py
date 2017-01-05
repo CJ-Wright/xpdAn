@@ -22,7 +22,7 @@ from bluesky import RunEngine
 from bluesky.examples import Reader, motor
 from bluesky.plans import scan, count
 
-from .glbl import an_glbl
+from .conf_glbl import an_glbl
 
 
 def _clean_info(input_str):

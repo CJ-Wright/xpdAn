@@ -25,7 +25,7 @@ from xpdan.simulation import build_pymongo_backed_broker
 matplotlib.use('qt4agg')
 
 
-def make_glbl(env_code=0, db=None):
+def make_glbl(env_code=0, db1=None, db2=None):
     """ make a instance of Glbl class
 
     Glbl class is used to handle attributes and directories
@@ -53,7 +53,6 @@ def make_glbl(env_code=0, db=None):
     DARK_FIELD_KEY = 'sc_dk_field_uid'
     CALIB_CONFIG_NAME = 'pyFAI_calib.yml'
 
-    # change this to be handled by an environment variable later
     if int(env_code) == 1:
         # test
         BASE_DIR = tempfile.mkdtemp()
@@ -61,11 +60,13 @@ def make_glbl(env_code=0, db=None):
     elif int(env_code) == 2:
         # simulation
         BASE_DIR = os.getcwd()
-        db = build_pymongo_backed_broker()
+        db1 = build_pymongo_backed_broker()
+        db2 = build_pymongo_backed_broker()
     else:
         # beamline
         BASE_DIR = os.path.abspath('/direct/XF28ID1/pe2_data')
-        from databroker.databroker import DataBroker as db
+        from databroker.databroker import DataBroker as db1
+        from databroker.databroker import DataBroker as db2
 
     # top directories
     HOME_DIR = os.path.join(BASE_DIR, HOME_DIR_NAME)
@@ -140,7 +141,8 @@ def make_glbl(env_code=0, db=None):
         det_image_field = DET_IMAGE_FIELD
         dark_field_key = DARK_FIELD_KEY
         calib_config_name = CALIB_CONFIG_NAME
-        exp_db = db
+        exp_db = db1
+        an_db = db2
         # default masking dict
         mask_dict = {'edge': 30, 'lower_thresh': 0.0,
                      'upper_thresh': None, 'bs_width': 13,

@@ -19,7 +19,6 @@ import sys
 import numpy as np
 import pytest
 
-from xpdan.data_reduction import DataReduction
 from xpdan.glbl import make_glbl
 from xpdan.io import fit2d_save
 from xpdan.simulation import build_pymongo_backed_broker
@@ -43,8 +42,8 @@ def clean_database(database):
 
 
 @pytest.fixture(scope='module')
-def mk_glbl(exp_db):
-    a = make_glbl(1, exp_db)
+def mk_glbl(exp_db, an_db):
+    a = make_glbl(1, exp_db, an_db)
     yield a
     if os.path.exists(a.base):
         print('removing {}'.format(a.base))
@@ -100,6 +99,7 @@ def an_db(request):
 
 @pytest.fixture(scope='module')
 def handler(exp_db):
+    from xpdan.data_reduction import DataReduction
     h = DataReduction(exp_db=exp_db)
     yield h
 
