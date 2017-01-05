@@ -136,7 +136,8 @@ def test_dark_subtraction_hfi(exp_db, an_db, tmp_dir, img_size):
             assert z['hfi'] == hfi.__name__
             for k, expected_v in {'hfi_module': inspect.getmodule(
                     hfi).__name__, 'hfi': hfi.__name__,
-                                  'args': (), 'kwargs': {},
+                                  'args': (),
+                                  'kwargs': {'dark_event_number': 0},
                                   'process_module': inspect.getmodule(
                                       process).__name__,
                                   'process': process.__name__}.items():

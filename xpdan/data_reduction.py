@@ -642,7 +642,7 @@ def db_integrate(exp_db, an_db, img_hdr,
 
     # If None go get it and use the latest
     if dark_hdr is None:
-        dark_hdr = exp_db(dark_uid=img_hdr['sc_dk_field_uid'],
+        dark_hdr = exp_db(uid=img_hdr['sc_dk_field_uid'],
                           dark_frame=True)[0]
     dark_corrected_stream = dark_subtraction_hfi((exp_db.restream(img_hdr),
                                                   exp_db.restream(dark_hdr)),
