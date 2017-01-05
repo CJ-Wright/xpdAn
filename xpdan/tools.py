@@ -244,23 +244,3 @@ def decompress_mask(data, indices, indptr, shape):
 
 def correct_polarization(geo, img, polarization_factor):
     return img/geo.polarization(img.shape, polarization_factor)
-
-
-def subtract(arr1, arr2):
-    """Subtract two arrays
-
-    Parameters
-    ----------
-    arr1: np.ndarray
-    arr2: np.ndarray
-
-    Returns
-    -------
-    np.ndarray
-
-    Notes
-    -----
-    This exists because ``inspect.getmodule`` does not work on numpy ufuncs
-
-    """
-    return arr1 - arr2

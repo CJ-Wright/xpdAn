@@ -116,7 +116,7 @@ def test_spoof_detector_calibration_hfi(exp_db, an_db):
 def test_dark_subtraction_hfi(exp_db, an_db, tmp_dir, img_size):
     hdr = exp_db[-1]
     hfi = dark_subtraction_hfi
-    process = subtract
+    process = sub
     dec_hfi = db_store_single_resource_single_file(
         an_db, {'img': (NPYSaver, (tmp_dir,), {})})(hfi)
     dark_hdr = exp_db(dark_uid=hdr['start']['dark_uid'], is_dark_img=True)[0]

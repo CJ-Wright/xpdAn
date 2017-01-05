@@ -28,6 +28,7 @@ from pprint import pprint
 from itertools import chain
 import types
 import itertools
+from operator import sub
 
 
 # -1. Wavelength Calibration (Pending @sghose)
@@ -181,7 +182,7 @@ def dark_subtraction_hfi(streams, *args, image_name='pe1_image',
         The name and documents for the dark subtraction
 
     """
-    process = subtract
+    process = sub
     hfi = dark_subtraction_hfi
     light_stream, dark_stream = streams
     run_start_uid = str(uuid4())
