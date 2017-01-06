@@ -19,10 +19,32 @@ from time import strftime
 
 import matplotlib
 from xpdan.simulation import build_pymongo_backed_broker
-
-# from databroker import db
+from databroker import Broker
+import warnings
 
 matplotlib.use('qt4agg')
+
+
+def build_broker_from_config(mds_name='metadatastore', fs_name='filestore'):
+    try:
+        import metadatastore.conf
+        mds_config = metadatastore.conf.load_configuration(
+            mds_name, 'MDS',
+            ['host', 'database', 'port', 'timezone'])
+
+        import filestore.conf
+        fs_config = filestore.conf.load_configuration(fs_name, 'FS',
+                                                      ['host', 'database',
+                                                       'port'])
+
+        from filestore.fs import FileStoreRO
+        from metadatastore.mds import MDSRO
+    except (KeyError, ImportError) as exc:
+        warnings.warn(
+            "No default DataBroker object will be created because "
+            "the necessary configuration was not found: %s" % exc)
+    else:
+        return Broker(MDSRO(mds_config), FileStoreRO(fs_config))
 
 
 def make_glbl(env_code=0, db1=None, db2=None):
@@ -66,7 +88,8 @@ def make_glbl(env_code=0, db1=None, db2=None):
     else:
         # beamline
         BASE_DIR = os.path.abspath('/direct/XF28ID1/pe2_data')
-        from databroker.databroker import DataBroker as db
+        db1 = build_broker_from_config()
+        db2 = build_broker_from_config('an_metadatastore', 'an_filestore')
 
     # top directories
     HOME_DIR = os.path.join(BASE_DIR, HOME_DIR_NAME)
@@ -76,6 +99,7 @@ def make_glbl(env_code=0, db1=None, db2=None):
     # aquire object directories
     CONFIG_BASE = os.path.join(HOME_DIR, 'config_base')
     # copying pyFAI calib dict yml for test
+    # Replace this with a resource
     if int(env_code) == 1:
         a = os.path.dirname(os.path.abspath(__file__))
         b = a.split('glbl.py')[0]
