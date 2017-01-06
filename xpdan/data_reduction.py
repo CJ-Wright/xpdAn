@@ -20,10 +20,9 @@ import tifffile as tif
 import yaml
 
 from redsky.savers import *
-from .io import read_fit2d_msk
-from .pipelines import integration_pipeline
 from .conf_glbl import an_glbl
 from .hfi import *
+from .io import read_fit2d_msk
 from .utils import _clean_info, _timestampstr
 
 # top definition for minimal impacts on the code
@@ -92,11 +91,11 @@ class DataReduction:
         dark_uid = header.start.get(an_glbl.dark_field_key, None)
         if dark_uid is None:
             print("INFO: no dark frame is associated in this header, "
-                  "subrraction will not be processed")
+                  "subtraction will not be processed")
             return None, header.start.time
         else:
             dark_search = {'group': 'XPD', 'uid': dark_uid}
-            dark_header = self.exp_db(**dark_search)
+            dark_header = self.exp_db(**dark_search)[0]
             dark_img = np.asarray(self.exp_db.get_images(dark_header,
                                                          self.image_field)
                                   ).squeeze()
@@ -621,28 +620,3 @@ def sum_images(event_stream, idxs_list=None):
                         total_img += img
                 yield chain([total_img], rest, ['[{}]'.format(
                     ','.join(map(str, idxs))), event])
-
-
-def db_integrate(img_hdr,
-                 exp_db=an_glbl.exp_db,
-                 an_db=an_glbl.an_db,
-                 glbl=an_glbl,
-                 **kwargs
-                 ):
-    img_stream = exp_db.restream(img_hdr, fill=True)
-
-    # Replace 'hdr's with 'stream's in kwargs
-    for key, db in [('dark_hdr', exp_db),
-                    ('detector_calibration_hdr', an_db),
-                    ('mask_hdr', an_db),]:
-        new_key = key.split('_')[0] + '_stream'
-        # If the header is None or doesn't exist the stream is None
-        if kwargs.get(key, None) is None:
-            kwargs[new_key] = None
-        # Otherwise restream the header
-        else:
-            kwargs[new_key] = db.restream(key, fill=True)
-        kwargs.pop(key)
-
-    kwargs.update(glbl=glbl)
-    integration_pipeline(img_stream, **kwargs)
