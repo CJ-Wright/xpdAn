@@ -25,7 +25,7 @@ from xpdan.simulation import build_pymongo_backed_broker
 matplotlib.use('qt4agg')
 
 
-def make_glbl(env_code=0, db=None):
+def make_glbl(env_code=0, db1=None, db2=None):
     """ make a instance of Glbl class
 
     Glbl class is used to handle attributes and directories
@@ -61,7 +61,8 @@ def make_glbl(env_code=0, db=None):
     elif int(env_code) == 2:
         # simulation
         BASE_DIR = os.getcwd()
-        db = build_pymongo_backed_broker()
+        db1 = build_pymongo_backed_broker()
+        db2 = build_pymongo_backed_broker()
     else:
         # beamline
         BASE_DIR = os.path.abspath('/direct/XF28ID1/pe2_data')
@@ -108,46 +109,44 @@ def make_glbl(env_code=0, db=None):
     ]
 
     # only create dirs if running test
-    if int(env_code) ==1:
+    if int(env_code) == 1:
         for folder in ALL_FOLDERS:
             os.makedirs(folder, exist_ok=True)
 
     # directories that won't be tar in the end of beamtime
     _EXCLUDE_DIR = [HOME_DIR, BLCONFIG_DIR, YAML_DIR]
-    _EXPORT_TAR_DIR = [CONFIG_BASE, USERSCRIPT_DIR]
+    glbl = dict(beamline_host_name=BEAMLINE_HOST_NAME,
+                base=BASE_DIR,
+                home=HOME_DIR,
+                _export_tar_dir=[CONFIG_BASE, USERSCRIPT_DIR],
+                xpdconfig=BLCONFIG_DIR,
+                import_dir=IMPORT_DIR,
+                config_base=CONFIG_BASE,
+                tiff_base=TIFF_BASE,
+                usrScript_dir=USERSCRIPT_DIR,
+                usrAnalysis_dir=ANALYSIS_DIR,
+                yaml_dir=YAML_DIR,
+                bt_dir=BT_DIR,
+                sample_dir=SAMPLE_DIR,
+                experiment_dir=EXPERIMENT_DIR,
+                scanplan_dir=SCANPLAN_DIR,
+                allfolders=ALL_FOLDERS,
+                archive_dir=USER_BACKUP_DIR,
+                owner=OWNER,
+                beamline_id=BEAMLINE_ID,
+                group=GROUP,
+                det_image_field=DET_IMAGE_FIELD,
+                dark_field_key=DARK_FIELD_KEY,
+                calib_config_name=CALIB_CONFIG_NAME,
+                exp_db=db1,
+                an_db=db2,
+                mask_dict={'edge': 30, 'lower_thresh': 0.0,
+                           'upper_thresh': None, 'bs_width': 13,
+                           'tri_offset': 13, 'v_asym': 0,
+                           'alpha': 2.5, 'tmsk': None},
+                _exclude_dir=_EXCLUDE_DIR)
 
-    class Glbl:
-        beamline_host_name = BEAMLINE_HOST_NAME
-        base = BASE_DIR
-        home = HOME_DIR
-        _export_tar_dir = _EXPORT_TAR_DIR
-        xpdconfig = BLCONFIG_DIR
-        import_dir = IMPORT_DIR
-        config_base = CONFIG_BASE
-        tiff_base = TIFF_BASE
-        usrScript_dir = USERSCRIPT_DIR
-        usrAnalysis_dir = ANALYSIS_DIR
-        yaml_dir = YAML_DIR
-        bt_dir = BT_DIR
-        sample_dir = SAMPLE_DIR
-        experiment_dir = EXPERIMENT_DIR
-        scanplan_dir = SCANPLAN_DIR
-        allfolders = ALL_FOLDERS
-        archive_dir = USER_BACKUP_DIR
-        owner = OWNER
-        beamline_id = BEAMLINE_ID
-        group = GROUP
-        det_image_field = DET_IMAGE_FIELD
-        dark_field_key = DARK_FIELD_KEY
-        calib_config_name = CALIB_CONFIG_NAME
-        exp_db = db
-        # default masking dict
-        mask_dict = {'edge': 30, 'lower_thresh': 0.0,
-                     'upper_thresh': None, 'bs_width': 13,
-                     'tri_offset': 13, 'v_asym': 0,
-                     'alpha': 2.5, 'tmsk': None}
-
-    return Glbl
+    return glbl
 
 
 try:

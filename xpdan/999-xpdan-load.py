@@ -16,6 +16,7 @@ import os
 import sys
 from mock import MagicMock
 from PyQt4 import QtGui
+
 app = QtGui.QApplication(sys.argv)
 
 # expected code
@@ -24,11 +25,11 @@ app = QtGui.QApplication(sys.argv)
 # 2 -> simulation
 os.environ['XPDAN_SETUP'] = str(2)
 
+
+# import functionality
+from xpdan.data_reduction import *
+
 # setup glbl
 from xpdan.glbl import an_glbl
 
-# import functionality
-from xpdan.qt_gui import XpdanSearch, an
-from xpdan.data_reduction import *
-
-db = an_glbl.exp_db # alias
+db = an_glbl['exp_db']  # alias
