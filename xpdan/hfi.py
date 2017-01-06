@@ -13,22 +13,18 @@
 # See LICENSE.txt for license information.
 #
 ##############################################################################
-from redsky.streamer import db_store_single_resource_single_file
+import inspect
+import itertools
 import traceback
+import types
+from itertools import chain
+from operator import sub
 from time import time
 from uuid import uuid4
 
-import numpy as np
+from pyFAI import AzimuthalIntegrator
 
 from .tools import *
-from pyFAI import AzimuthalIntegrator
-import sys
-import inspect
-from pprint import pprint
-from itertools import chain
-import types
-import itertools
-from operator import sub
 
 
 # -1. Wavelength Calibration (Pending @sghose)
