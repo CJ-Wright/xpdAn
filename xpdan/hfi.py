@@ -690,15 +690,14 @@ def integrate_hfi(streams, *args, mask_stream=None,
     else:
         tmsk = None
     for i, (name, ev) in enumerate(image_stream):
-        if isinstance(tmsk, types.GeneratorType):
-            kwargs['mask'] = ~next(tmsk)[1]['data'][mask_name]
-        elif tmsk is not None:
-            kwargs['mask'] = ~tmsk
-
         if name == 'stop':
             break
         if name != 'event':
             raise Exception
+        if hasattr(tmsk, '__next__'):
+            kwargs['mask'] = ~next(tmsk)[1]['data'][mask_name]
+        elif tmsk is not None:
+            kwargs['mask'] = ~tmsk
         try:
             results = process(ev['data'][image_name], **kwargs)
         except Exception as e:

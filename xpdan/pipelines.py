@@ -1,0 +1,104 @@
+from itertools import chain, tee
+
+from redsky.savers import NPYSaver
+from redsky.streamer import db_store_single_resource_single_file
+from xpdan.conf_glbl import an_glbl
+from xpdan.hfi import (dark_subtraction_hfi, spoof_detector_calibration_hfi,
+                       polarization_correction_hfi, master_mask_hfi,
+                       integrate_hfi)
+
+
+def integration_pipeline(img_stream,
+                         dark_stream=None, dark_kwargs=None,
+                         detector_calibration_stream=None,
+                         mask_stream=None, mask_kwargs=None,
+                         polarization_kwargs=None,
+                         integration_kwargs=None,
+                         glbl=an_glbl
+                         ):
+    exp_db = glbl.exp_db
+    an_db = glbl.an_db
+
+    img_dec = db_store_single_resource_single_file(
+        an_db, {'img': (NPYSaver, (glbl.usrAnalysis_dir,), {})})
+    mask_dec = db_store_single_resource_single_file(
+        an_db, {'mask': (NPYSaver, (glbl.usrAnalysis_dir,), {})})
+    if dark_kwargs is None:
+        dark_kwargs = {}
+    if mask_kwargs is None:
+        mask_kwargs = {}
+    if integration_kwargs is None:
+        integration_kwargs = {'npt': 1500}
+    if polarization_kwargs is None:
+        polarization_kwargs = {'polarization_factor': .99}
+
+    # We need to peek at the image start document to fill in the None headers
+    img_start = None
+    if img_start is None:
+        name, doc = next(img_stream)
+        img_start = doc
+        # Quickly put it back on the top no one will notice
+        img_stream = chain((i for i in ((name, doc),)), img_stream)
+
+    img_stream, img_stream2 = tee(img_stream, 2)
+    # If None go get it and use the latest
+    if dark_stream is None:
+        dark_hdr = exp_db(dark_uid=img_start['sc_dk_field_uid'],
+                          dark_frame=True)[0]
+        dark_stream = exp_db.restream(dark_hdr, fill=True)
+
+    dark_corrected_stream = img_dec(dark_subtraction_hfi)(
+        (img_stream, dark_stream), **dark_kwargs)
+
+    # If None go get it
+    if detector_calibration_stream is None:
+        detector_calibration_hdr = an_db(calibration_collection_uid=img_start[
+            'calibration_collection_uid'])
+        if len(detector_calibration_hdr) > 0:
+            detector_calibration_hdr = detector_calibration_hdr[0]
+            detector_calibration_stream = an_db.restream(
+                detector_calibration_hdr, fill=True)
+        # If None exist make one
+        else:
+            """
+            XXX Rebuild this when we are using GUI calibration
+            calibration_img_hdr = exp_db(
+                calibration_collection_uid=img_start[
+                'calibration_collection_uid'])[0]
+            calibration_img_stream = exp_db.restream(calibration_img_hdr,
+                                                     fill=True)
+            """
+
+            detector_calibration_stream = db_store_single_resource_single_file(
+                an_db)(spoof_detector_calibration_hfi)(img_stream2)
+
+    detector_calibration_streams = tee(detector_calibration_stream, 3)
+    polarization_corrected_stream = img_dec(polarization_correction_hfi)(
+        (dark_corrected_stream, detector_calibration_streams[0]),
+        **polarization_kwargs)
+
+    # masks
+    # If string 'None' do nothing
+    if mask_stream is 'None':
+        pre_integration_stream = polarization_corrected_stream
+        mask_stream = None
+
+    # If python None create the mask
+    elif mask_stream is None:
+        pre_integration_stream, pre_integration_stream2 = tee(
+            polarization_corrected_stream, 2)
+        mask_stream = mask_dec(master_mask_hfi)((pre_integration_stream2,
+                                                 detector_calibration_streams[
+                                                     1]), **mask_kwargs)
+    # Otherwise use the provided mask
+    else:
+        pre_integration_stream = polarization_corrected_stream
+
+    iq_stream = db_store_single_resource_single_file(
+        an_db, {'iq': (NPYSaver, (glbl.usrAnalysis_dir, ), {}),
+                'q': (NPYSaver, (glbl.usrAnalysis_dir,), {}), })(
+        integrate_hfi)((pre_integration_stream,
+                        detector_calibration_streams[2]),
+                       mask_stream=mask_stream,
+                       **integration_kwargs)
+    yield from iq_stream

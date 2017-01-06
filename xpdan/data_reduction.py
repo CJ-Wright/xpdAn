@@ -14,21 +14,17 @@
 # See LICENSE.txt for license information.
 #
 ##############################################################################
-import os
-from itertools import islice, tee, chain
+from itertools import islice, tee
 
-import numpy as np
 import tifffile as tif
 import yaml
-from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 
-from .conf_glbl import an_glbl
-from .tools import mask_img, decompress_mask
-from .utils import _clean_info, _timestampstr
-from xpdan.io import read_fit2d_msk
-from .hfi import *
-from redsky.streamer import *
 from redsky.savers import *
+from .io import read_fit2d_msk
+from .pipelines import integration_pipeline
+from .conf_glbl import an_glbl
+from .hfi import *
+from .utils import _clean_info, _timestampstr
 
 # top definition for minimal impacts on the code
 
@@ -649,89 +645,4 @@ def db_integrate(img_hdr,
         kwargs.pop(key)
 
     kwargs.update(glbl=glbl)
-    integrate_stream(img_stream, **kwargs)
-
-
-def integrate_stream(img_stream,
-                     dark_stream=None, dark_kwargs=None,
-                     detector_calibration_stream=None,
-                     mask_stream=None, mask_kwargs=None,
-                     polarization_kwargs=None,
-                     integration_kwargs=None,
-                     exp_db=an_glbl.exp_db,
-                     an_db=an_glbl.an_db,
-                     glbl=an_glbl
-                     ):
-    img_dec = db_store_single_resource_single_file(
-        an_db, {'img': (NPYSaver, (glbl.usrAnalysis_dir, ()), {})})
-    if dark_kwargs is None:
-        dark_kwargs = {}
-    if mask_kwargs is None:
-        mask_kwargs = {}
-    if integration_kwargs is None:
-        integration_kwargs = {}
-    if polarization_kwargs is None:
-        polarization_kwargs = {}
-
-    # We need to peek at the image start document to fill in the gaps
-    _, img_start = next(img_stream)
-    # Quickly put it back on the top no one will notice
-    img_stream = chain((i for i in (img_start,)), img_stream)
-
-    # If None go get it and use the latest
-    if dark_stream is None:
-        dark_hdr = exp_db(dark_uid=img_start['sc_dk_field_uid'],
-                          dark_frame=True)[0]
-        dark_stream = exp_db.restream(dark_hdr, fill=True)
-
-    dark_corrected_stream = img_dec(dark_subtraction_hfi)(
-        (img_stream, dark_stream), **dark_kwargs)
-
-    # If None go get it
-    if detector_calibration_stream is None:
-        detector_calibration_hdr = an_db(calibration_collection_uid=img_start[
-            'calibration_collection_uid'])
-        if len(detector_calibration_hdr) > 0:
-            detector_calibration_hdr = detector_calibration_hdr[0]
-        # If None exist make one
-        else:
-            calibration_img_hdr = exp_db(calibration_collection_uid=img_start[
-                'calibration_collection_uid'])[0]
-            calibration_stream = db_store_single_resource_single_file(
-                an_db)(spoof_detector_calibration_hfi)(
-                exp_db.restream(calibration_img_hdr))
-            for name, doc in calibration_stream:
-                if name == 'start':
-                    calibration_uid = doc['uid']
-                pass
-            detector_calibration_stream = an_db.restream(calibration_uid)
-
-    polarization_corrected_stream = img_dec(polarization_correction_hfi)(
-        (dark_corrected_stream, detector_calibration_stream),
-        **polarization_kwargs)
-
-    # masks
-    # If string 'None' do nothing
-    if mask_stream is 'None':
-        pre_integration_stream = polarization_corrected_stream
-        mask_stream = None
-
-    # If python None create the mask
-    elif mask_stream is None:
-        pre_integration_stream, pre_integration_stream2 = tee(
-            polarization_corrected_stream, 2)
-        mask_stream = db_store_single_resource_single_file(
-            an_db, {'mask': (NPYSaver, (glbl.usrAnalysis_dir, ()), {})})(
-            master_mask_hfi)((pre_integration_stream2,
-                              detector_calibration_stream), **mask_kwargs)
-    # Otherwise use the provided mask
-    else:
-        pre_integration_stream = polarization_corrected_stream
-
-    iq_stream = db_store_single_resource_single_file(
-        an_db, {'iq': (NPYSaver, (glbl.usrAnalysis_dir, ()), {})})(
-        integrate_hfi)((pre_integration_stream,
-                        detector_calibration_stream),
-                       mask_stream=mask_stream,
-                       **integration_kwargs)
-    yield from iq_stream
+    integration_pipeline(img_stream, **kwargs)
