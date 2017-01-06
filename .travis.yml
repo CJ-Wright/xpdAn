@@ -75,5 +75,7 @@ script:
 
 after_script:
   - flake8 .
+
+after_success:
   - codecov
   - coveralls

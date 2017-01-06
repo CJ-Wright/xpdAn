@@ -162,7 +162,7 @@ def _load_config(header):
     except FileNotFoundError:
         config_dict = header.start.get('calibration_md', None)
         if config_dict is None:
-            # back support
+            # back sup1port
             config_dict = header.start.get('sc_calibration_md', None)
 
     return config_dict
