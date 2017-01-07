@@ -14,8 +14,36 @@ def integration_pipeline(img_stream,
                          mask_stream=None, mask_kwargs=None,
                          polarization_kwargs=None,
                          integration_kwargs=None,
-                         glbl=an_glbl
-                         ):
+                         glbl=an_glbl):
+    """Integrate
+
+    Parameters
+    ----------
+    img_stream: generator
+        The image data stream
+    dark_stream: generator, optional
+        The dark image data stream. If None search for the dark data.
+        Defaults to None
+    dark_kwargs: dict, optional
+        Kwargs for the dark processing
+    detector_calibration_stream: generator, optional
+        The detector calibration stream. If None search for the detector
+        calibration data. Defaults to None
+    mask_stream: generator, optional
+        The mask stream. If 'None' don't use a mask. If None generate a mask
+        from scratch. Defaults to None
+    mask_kwargs: dict, optional
+        The mask kwargs. See `xpdan.hfi.master_mask_hfi`
+    polarization_kwargs: dict, optional
+        The polarization correction kwargs. Defaults to .99
+    integration_kwargs: dict, optional
+
+    glbl
+
+    Returns
+    -------
+
+    """
     exp_db = glbl.exp_db
     an_db = glbl.an_db
 
@@ -104,10 +132,20 @@ def integration_pipeline(img_stream,
     yield from iq_stream
 
 
-def db_integrate(img_hdr,
-                 glbl=an_glbl,
-                 **kwargs
-                 ):
+def db_integrate(img_hdr, glbl=an_glbl, **kwargs):
+    """Integrate at header
+
+    Parameters
+    ----------
+    img_hdr: databroker.header
+        The header to integrate
+    glbl: dict
+        The analysis global
+
+    Returns
+    -------
+
+    """
     exp_db = glbl.exp_db
     an_db = glbl.an_db
     img_stream = exp_db.restream(img_hdr, fill=True)
