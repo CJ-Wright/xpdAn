@@ -43,8 +43,8 @@ def integration_pipeline(img_stream,
     img_stream, img_stream2 = tee(img_stream, 2)
     # If None go get it and use the latest
     if dark_stream is None:
-        dark_hdr = exp_db(dark_uid=img_start['sc_dk_field_uid'],
-                          dark_frame=True)[0]
+        dark_hdr = exp_db(dark_collection_uid=img_start['dark_collection_uid'],
+                          is_dark=True)[0]
         dark_stream = exp_db.restream(dark_hdr, fill=True)
 
     dark_corrected_stream = img_dec(dark_subtraction_hfi)(

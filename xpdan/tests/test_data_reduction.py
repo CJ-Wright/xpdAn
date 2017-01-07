@@ -19,7 +19,8 @@ import numpy as np
 import pytest
 
 from xpdan.data_reduction import (integrate_and_save, sum_images,
-                                  integrate_and_save_last, save_tiff)
+                                  integrate_and_save_last, save_tiff,
+                                  save_last_tiff)
 
 sum_idx_values = (
     None, 'all', [1, 2, 3], [(1, 3)], [[1, 2, 3], [2, 3]], [[1, 3], (1, 3)])

@@ -50,7 +50,7 @@ def make_glbl(env_code=0, db1=None, db2=None):
     BEAMLINE_ID = 'xpd'
     GROUP = 'XPD'
     DET_IMAGE_FIELD = 'pe1_image'
-    DARK_FIELD_KEY = 'sc_dk_field_uid'
+    DARK_FIELD_KEY = 'dark_collection_uid'
     CALIB_CONFIG_NAME = 'pyFAI_calib.yml'
 
     if int(env_code) == 1:

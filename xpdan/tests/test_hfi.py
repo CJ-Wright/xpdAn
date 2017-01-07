@@ -119,7 +119,8 @@ def test_dark_subtraction_hfi(exp_db, an_db, tmp_dir, img_size):
     process = sub
     dec_hfi = db_store_single_resource_single_file(
         an_db, {'img': (NPYSaver, (tmp_dir,), {})})(hfi)
-    dark_hdr = exp_db(dark_uid=hdr['start']['dark_uid'], is_dark_img=True)[0]
+    dark_hdr = exp_db(dark_collection_uid=hdr['start']['dark_collection_uid'],
+                      is_dark=True)[0]
     dark_img = next(exp_db.get_events(dark_hdr,
                                       fill=True))['data']['pe1_image']
     # Actually run the thing
@@ -161,7 +162,8 @@ def test_margin_mask_hfi(exp_db, an_db, tmp_dir, img_size):
     process = margin
     dec_hfi = db_store_single_resource_single_file(
         an_db, {'mask': (NPYSaver, (tmp_dir,), {})})(hfi)
-    dark_hdr = exp_db(dark_uid=hdr['start']['dark_uid'], is_dark_img=True)[0]
+    dark_hdr = exp_db(dark_collection_uid=hdr['start']['dark_collection_uid'],
+                      is_dark=True)[0]
     # Actually run the thing
     for (n, z), (n2, z2) in zip(dec_hfi(exp_db.restream(hdr, fill=True),
                                         edge=13, image_name='pe1_image'),

@@ -6,4 +6,6 @@ exclude =
     old,
     build,
     dist
+    xpdan/qt_qui.py
+    xpdan/ipython_config.py
 max-complexity = 10

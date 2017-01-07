@@ -94,8 +94,8 @@ class DataReduction:
                   "subtraction will not be processed")
             return None, header.start.time
         else:
-            dark_search = {'group': 'XPD', 'uid': dark_uid}
-            dark_header = self.exp_db(**dark_search)[0]
+            dark_search = {'dark_collection_uid': dark_uid, 'is_dark': True}
+            dark_header = self.exp_db(**dark_search)
             dark_img = np.asarray(self.exp_db.get_images(dark_header,
                                                          self.image_field)
                                   ).squeeze()
