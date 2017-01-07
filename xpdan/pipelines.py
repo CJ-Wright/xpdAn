@@ -28,7 +28,7 @@ def integration_pipeline(img_stream,
     if mask_kwargs is None:
         mask_kwargs = {}
     if integration_kwargs is None:
-        integration_kwargs = {'npt': 1500}
+        integration_kwargs = {'npt': 1500}  # TODO: pull dynamically
     if polarization_kwargs is None:
         polarization_kwargs = {'polarization_factor': .99}
 
