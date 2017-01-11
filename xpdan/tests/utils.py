@@ -74,10 +74,46 @@ def insert_imgs(mds, fs, n, shape, save_dir=tempfile.mkdtemp(),
 
     # Insert light images
     imgs = [np.ones(shape)] * n
+    bg_uid = str(uuid4())
     run_start = mds.insert_run_start(uid=str(uuid4()), time=time.time(),
                                      name='test',
                                      dark_collection_uid=dark_collection_uid,
                                      beamtime_uid=beamtime_uid,
+                                     background_collection_uid=bg_uid,
+                                     **kwargs)
+    data_keys = {
+        'pe1_image': dict(source='testing', external='FILESTORE:',
+                          dtype='array', shape=imgs[0].shape)}
+    data_hdr = dict(run_start=run_start,
+                    data_keys=data_keys,
+                    time=time.time(), uid=str(uuid4()))
+    descriptor = mds.insert_descriptor(**data_hdr)
+    for i, img in enumerate(imgs):
+        fs_uid = str(uuid4())
+        fn = os.path.join(save_dir, fs_uid + '.npy')
+        np.save(fn, img)
+        # insert into FS
+        fs_res = fs.insert_resource('npy', fn, resource_kwargs={})
+        fs.insert_datum(fs_res, fs_uid, datum_kwargs={})
+        mds.insert_event(
+            descriptor=descriptor,
+            uid=str(uuid4()),
+            time=time.time(),
+            data={'pe1_image': fs_uid},
+            timestamps={'pe1_image': time.time()},
+            seq_num=i)
+    mds.insert_run_stop(run_start=run_start,
+                        uid=str(uuid4()),
+                        time=time.time())
+
+    # Insert background images
+    imgs = [np.ones(shape)] * n
+    run_start = mds.insert_run_start(uid=str(uuid4()), time=time.time(),
+                                     name='test',
+                                     dark_collection_uid=dark_collection_uid,
+                                     beamtime_uid=beamtime_uid,
+                                     background_collection_uid=bg_uid,
+                                     is_background=True,
                                      **kwargs)
     data_keys = {
         'pe1_image': dict(source='testing', external='FILESTORE:',

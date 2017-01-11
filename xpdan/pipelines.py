@@ -123,7 +123,7 @@ def integration_pipeline(img_stream,
         pre_integration_stream = polarization_corrected_stream
 
     iq_stream = db_store_single_resource_single_file(
-        an_db, {'iq': (NPYSaver, (glbl.usrAnalysis_dir, ), {}),
+        an_db, {'iq': (NPYSaver, (glbl.usrAnalysis_dir,), {}),
                 'q': (NPYSaver, (glbl.usrAnalysis_dir,), {}), })(
         integrate_hfi)((pre_integration_stream,
                         detector_calibration_streams[2]),
@@ -153,7 +153,7 @@ def db_integrate(img_hdr, glbl=an_glbl, **kwargs):
     # Replace 'hdr's with 'stream's in kwargs
     for key, db in [('dark_hdr', exp_db),
                     ('detector_calibration_hdr', an_db),
-                    ('mask_hdr', an_db),]:
+                    ('mask_hdr', an_db), ]:
         new_key = key.replace('hdr', 'stream')
         # If the header is None or doesn't exist the stream is None
         if kwargs.get(key, None) is None:

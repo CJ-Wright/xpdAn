@@ -292,7 +292,7 @@ def test_mask_hfi(exp_db, an_db, tmp_dir, img_size):
             assert z['data']['mask'].dtype == np.bool
 
 
-def test_integrate_hfi(exp_db, an_db, tmp_dir, img_size):
+def test_integrate_hfi(exp_db, an_db, tmp_dir):
     hdr = exp_db[-1]
     hfi = spoof_detector_calibration_hfi
     dec_hfi = db_store_single_resource_single_file(
