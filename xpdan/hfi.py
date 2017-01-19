@@ -329,9 +329,10 @@ def spoof_mask_hfi(streams, *args, mask_name='mask',
     process = decompress_mask
     hfi = spoof_mask_hfi
     run_start_uid = str(uuid4())
+    parent_starts = [next(s)[1] for s in streams]
     new_start_doc = dict(
         uid=run_start_uid, time=time(),
-        parents=[next(s)[1]['uid'] for s in streams],
+        parents=[s['uid'] for s in parent_starts],
         hfi=hfi.__name__,
         provenance=dict(
             hfi_module=inspect.getmodule(hfi).__name__,
@@ -345,9 +346,9 @@ def spoof_mask_hfi(streams, *args, mask_name='mask',
 
     _, desc = [n for s in streams for n in next(s)]
 
-    data_keys_dict = {'img': dict(source='testing', dtype='array', )}
+    data_keys_dict = {'mask': dict(source='testing', dtype='array', )}
     if 'shape' in desc['data_keys'][image_name].keys():
-        data_keys_dict['img'].update(
+        data_keys_dict['mask'].update(
             shape=desc['data_keys'][image_name]['shape'])
 
     new_descriptor = dict(uid=str(uuid4()), time=time(),
@@ -356,7 +357,7 @@ def spoof_mask_hfi(streams, *args, mask_name='mask',
     yield 'descriptor', new_descriptor
 
     exit_md = None
-    mask_md = new_start_doc['parents'][0].get(mask_name, None)
+    mask_md = parent_starts[0].get(mask_name, None)
     for i, (name, ev) in enumerate(streams[0]):
         if name == 'stop':
             break
@@ -370,320 +371,6 @@ def spoof_mask_hfi(streams, *args, mask_name='mask',
                 # unpack here
                 mask = decompress_mask(*mask_md, img.shape)
             results = mask
-        except Exception as e:
-            exit_md = dict(exit_status='failure', reason=repr(e),
-                           traceback=traceback.format_exc())
-            break
-
-        new_event = dict(uid=str(uuid4()), time=time(), timestamps={},
-                         descriptor=new_descriptor['uid'],
-                         data={'mask': results},
-                         seq_num=i)
-        yield 'event', new_event
-
-    if exit_md is None:
-        exit_md = {'exit_status': 'success'}
-    new_stop = dict(uid=str(uuid4()), time=time(),
-                    run_start=run_start_uid, **exit_md)
-    yield 'stop', new_stop
-
-
-def margin_mask_hfi(image_stream,
-                    *args,
-                    image_name='img',
-                    mask_stream=None,
-                    mask_name='mask',
-                    **kwargs):
-    """Create margin mask stream based off of data in raw data
-        header.
-
-    Parameters
-    ----------
-    image_stream: generator
-        Streams of raw data data from ``db.restream(hdr)``
-    image_name: str, optional
-        The name of the field where the image data is stored. Defaults to 'img'
-    mask_stream: generator, optional
-        Stream of mask data which is used as a base for subsequent masks.
-        Defaults to no additional mask data
-    mask_name: str, optional
-        The name of the field where the mask data is stored. Defaults to 'mask'
-
-    Yields
-    -------
-    name, document:
-        The name and documents for the margin mask
-
-    """
-    process = margin
-    hfi = margin_mask_hfi
-    streams = [image_stream]
-    if mask_stream is not None:
-        streams.append(mask_stream)
-    run_start_uid = str(uuid4())
-    new_start_doc = dict(
-        uid=run_start_uid, time=time(),
-        parents=[next(s)[1]['uid'] for s in streams],
-        hfi=hfi.__name__,
-        provenance=dict(
-            hfi_module=inspect.getmodule(hfi).__name__,
-            hfi=hfi.__name__,
-            process_module=inspect.getmodule(process).__name__,
-            process=process.__name__,
-            kwargs=kwargs,
-            args=args),
-    )  # More provenance to be defined (eg environment)
-    yield 'start', new_start_doc
-
-    descriptors = [next(s) for s in streams]
-    img_descriptor = descriptors[0][1]
-    data_keys_dict = {'mask': dict(source='testing', dtype='array', )}
-
-    if 'shape' in img_descriptor['data_keys'][image_name].keys():
-        data_keys_dict['mask'].update(
-            shape=img_descriptor['data_keys'][image_name][
-                'shape'])
-
-    new_descriptor = dict(uid=str(uuid4()), time=time(),
-                          run_start=run_start_uid,
-                          data_keys=data_keys_dict)
-    yield 'descriptor', new_descriptor
-
-    exit_md = None
-    # Determine if we have one or many masks
-    if mask_stream:
-        mask_doc_name1, mask_doc1 = next(mask_stream)
-        mask_doc_name2, mask_doc2 = next(mask_stream)
-        if mask_doc_name2 == 'stop':
-            tmsk = mask_doc1['data'][mask_name]
-        else:
-            tmsk = chain([(mask_doc_name1, mask_doc1),
-                          (mask_doc_name2, mask_doc2)], mask_stream)
-    else:
-        tmsk = None
-
-    for i, (name, ev) in enumerate(image_stream):
-        if isinstance(tmsk, types.GeneratorType):
-            kwargs['tmsk'] = next(tmsk)[1]['data'][mask_name]
-        else:
-            kwargs['tmsk'] = tmsk
-
-        if name == 'stop':
-            break
-        if name != 'event':
-            raise Exception
-        try:
-            results = process(ev['data'][image_name].shape, kwargs['edge'])
-            if tmsk:
-                results *= tmsk
-        except Exception as e:
-            exit_md = dict(exit_status='failure', reason=repr(e),
-                           traceback=traceback.format_exc())
-            break
-
-        new_event = dict(uid=str(uuid4()), time=time(), timestamps={},
-                         descriptor=new_descriptor['uid'],
-                         data={'mask': results},
-                         seq_num=i)
-        yield 'event', new_event
-
-    if exit_md is None:
-        exit_md = {'exit_status': 'success'}
-    new_stop = dict(uid=str(uuid4()), time=time(),
-                    run_start=run_start_uid, **exit_md)
-    yield 'stop', new_stop
-
-
-'''
-def lower_threshold_hfi(name_doc_stream_pair, *args,
-                        image_name='img',
-                        **kwargs):
-    process = np.greater
-    _, start = next(name_doc_stream_pair)
-    run_start_uid = str(uuid4())
-    new_start_doc = dict(uid=run_start_uid, time=time(),
-                         parents=[s['uid'] for s in [start]],
-                         hfi=lower_threshold_hfi.__name__,
-                         provenance={'module': sys.modules[__name__],
-                                     'hfi': lower_threshold_hfi.__name__,
-                                     'args': args,
-                                     'kwargs': kwargs,
-                                     'process': process.__name__
-                                     })
-    yield 'start', new_start_doc
-
-    _, descriptor = next(name_doc_stream_pair)
-    new_descriptor = dict(uid=str(uuid4()), time=time(),
-                          run_start=run_start_uid,
-                          data_keys={'mask': dict(source='testing',
-                                                  dtype='array'),
-                                     })
-    yield 'descriptor', new_descriptor
-
-    exit_md = None
-    for i, (name, ev) in enumerate(name_doc_stream_pair):
-        if name == 'stop':
-            break
-        if name != 'event':
-            raise Exception
-        try:
-            results = process(ev['data'][image_name],
-                              kwargs['threshold'])
-        except Exception as e:
-            exit_md = dict(exit_status='failure', reason=repr(e),
-                           traceback=traceback.format_exc())
-            break
-
-        new_event = dict(uid=str(uuid4()), time=time(), timestamps={},
-                         descriptor=new_descriptor['uid'],
-                         data={'mask': results},
-                         seq_num=i)
-        yield 'event', new_event
-
-    if exit_md is None:
-        exit_md = {'exit_status': 'success'}
-    new_stop = dict(uid=str(uuid4()), time=time(),
-                    run_start=run_start_uid, **exit_md)
-    yield 'stop', new_stop
-
-
-def upper_threshold_hfi(name_doc_stream_pair, *args,
-                        image_name='img',
-                        **kwargs):
-    process = np.less
-    _, start = next(name_doc_stream_pair)
-    run_start_uid = str(uuid4())
-    new_start_doc = dict(uid=run_start_uid, time=time(),
-                         parents=[s['uid'] for s in [start]],
-                         hfi=upper_threshold_hfi.__name__,
-                         provenance={'module': sys.modules[__name__],
-                                     'hfi': upper_threshold_hfi.__name__,
-                                     'args': args,
-                                     'kwargs': kwargs,
-                                     'process': process.__name__
-                                     })
-    yield 'start', new_start_doc
-
-    _, descriptor = next(name_doc_stream_pair)
-    new_descriptor = dict(uid=str(uuid4()), time=time(),
-                          run_start=run_start_uid,
-                          data_keys={'mask': dict(source='testing',
-                                                  dtype='array'),
-                                     })
-    yield 'descriptor', new_descriptor
-
-    exit_md = None
-    for i, (name, ev) in enumerate(name_doc_stream_pair):
-        if name == 'stop':
-            break
-        if name != 'event':
-            raise Exception
-        try:
-            results = process(ev['data'][image_name],
-                              kwargs['threshold'])
-        except Exception as e:
-            exit_md = dict(exit_status='failure', reason=repr(e),
-                           traceback=traceback.format_exc())
-            break
-
-        new_event = dict(uid=str(uuid4()), time=time(), timestamps={},
-                         descriptor=new_descriptor['uid'],
-                         data={'img': results},
-                         seq_num=i)
-        yield 'event', new_event
-
-    if exit_md is None:
-        exit_md = {'exit_status': 'success'}
-    new_stop = dict(uid=str(uuid4()), time=time(),
-                    run_start=run_start_uid, **exit_md)
-    yield 'stop', new_stop
-
-'''
-
-
-def master_mask_hfi(streams, *args, mask_stream=None,
-                    image_name='img', calibration_name='detector_calibration',
-                    mask_name='mask',
-                    **kwargs):
-    """Create detector calibration stream based off of data in raw data
-        header.
-
-    Parameters
-    ----------
-    streams: tuple of generators
-        Streams of raw data and detector calibration data from
-        ``db.restream(hdr), db.restream(calibration_hdr)``
-    image_name: str, optional
-        The name of the field where the image data is stored. Defaults to 'img'
-    mask_stream: generator, optional
-        Stream of mask data which is used as a base for subsequent masks.
-        Defaults to no additional mask data
-    mask_name: str, optional
-        The name of the field where the mask data is stored. Defaults to 'mask'
-
-    Yields
-    -------
-    name, document:
-        The name and documents for the margin mask
-    """
-    process = mask_img
-    hfi = master_mask_hfi
-    image_stream, calibration_stream = streams
-    if mask_stream:
-        streams.append(mask_stream)
-    run_start_uid = str(uuid4())
-    new_start_doc = dict(
-        uid=run_start_uid, time=time(),
-        parents=[next(s)[1]['uid'] for s in streams],
-        hfi=hfi.__name__,
-        provenance=dict(
-            hfi_module=inspect.getmodule(hfi).__name__,
-            hfi=hfi.__name__,
-            process_module=inspect.getmodule(process).__name__,
-            process=process.__name__,
-            kwargs=kwargs,
-            args=args),
-    )  # More provenance to be defined (eg environment)
-    yield 'start', new_start_doc
-
-    descriptors = [next(s)[1] for s in streams]
-    data_key_dict = {'mask': dict(source='testing', dtype='array', )}
-    if 'shape' in descriptors[0]['data_keys'][image_name].keys():
-        data_key_dict['mask'].update(
-            shape=descriptors[0]['data_keys'][image_name]['shape'])
-
-    new_descriptor = dict(uid=str(uuid4()), time=time(),
-                          run_start=run_start_uid,
-                          data_keys=data_key_dict)
-    yield 'descriptor', new_descriptor
-
-    exit_md = None
-    geo = AzimuthalIntegrator()
-    geo.setPyFAI(**next(calibration_stream)[1]['data'][calibration_name])
-
-    # Determine if we have one or many masks
-    if mask_stream:
-        mask_doc_name1, mask_doc1 = next(mask_stream)
-        mask_doc_name2, mask_doc2 = next(mask_stream)
-        if mask_doc_name2 == 'stop':
-            tmsk = mask_doc1['data'][mask_name]
-        else:
-            tmsk = chain([(mask_doc_name1, mask_doc1),
-                          (mask_doc_name2, mask_doc2)], mask_stream)
-    else:
-        tmsk = None
-    for i, (name, ev) in enumerate(image_stream):
-        if isinstance(tmsk, types.GeneratorType):
-            kwargs['tmsk'] = next(tmsk)[1]['data'][mask_name]
-        else:
-            kwargs['tmsk'] = tmsk
-
-        if name == 'stop':
-            break
-        if name != 'event':
-            raise Exception
-        try:
-            results = process(ev['data'][image_name], geo, **kwargs)
         except Exception as e:
             exit_md = dict(exit_status='failure', reason=repr(e),
                            traceback=traceback.format_exc())

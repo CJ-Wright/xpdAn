@@ -66,7 +66,7 @@ def db(request):
 
 
 @pytest.fixture(scope='module')
-def exp_db(db, tmp_dir, img_size, wavelength, make_compressed_mask):
+def exp_db(db, tmp_dir, img_size, wavelength, make_mask):
     print('Making EXP DB')
     mds = db.mds
     fs = db.fs
@@ -76,9 +76,13 @@ def exp_db(db, tmp_dir, img_size, wavelength, make_compressed_mask):
                     calibration_collection_uid=str(uuid4()),
                     wavelength=wavelength)
     args = (mds, fs, 5, img_size, tmp_dir,)
-    insert_imgs(*args, bt_safN=0, pi_name='chris', mask=make_compressed_mask, **cal_dict)
-    insert_imgs(*args, pi_name='tim', bt_safN=1, mask=make_compressed_mask, **cal_dict)
-    insert_imgs(*args, pi_name='chris', bt_safN=2, mask=make_compressed_mask, **cal_dict)
+    const_kwargs = dict(mask=make_mask, **cal_dict)
+    insert_imgs(*args, bt_safN=0, pi_name='chris',
+                **const_kwargs)
+    insert_imgs(*args, pi_name='tim', bt_safN=1,
+                **const_kwargs)
+    insert_imgs(*args, pi_name='chris', bt_safN=2,
+                **const_kwargs)
     yield db
 
 
@@ -129,7 +133,7 @@ def disk_mask(tmp_dir, img_size):
     yield (file_name_msk, file_name, mask)
 
 @pytest.fixture(scope='module')
-def make_compressed_mask(img_size):
+def make_mask(img_size):
     mask = np.random.random_integers(0, 1, img_size).astype(bool)
     return compress_mask(mask)
 

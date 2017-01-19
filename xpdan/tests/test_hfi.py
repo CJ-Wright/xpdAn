@@ -113,14 +113,46 @@ def test_spoof_detector_calibration_hfi(exp_db, an_db):
             ai.setPyFAI(**z['data']['detector_calibration'])
 
 
+def test_spoof_mask_hfi(exp_db, make_mask, img_size):
+    hdr = exp_db[-1]
+    hfi = spoof_mask_hfi
+    process = decompress_mask
+    dec_hfi = hfi
+    # Actually run the thing
+    for (n, z) in dec_hfi((exp_db.restream(hdr, fill=True), )):
+        pprint(n)
+        pprint(z)
+        print()
+        if n == 'start':
+            assert z['parents'] == [hdr['start']['uid'], ]
+            assert z['hfi'] == hfi.__name__
+            for k, expected_v in {'hfi_module': inspect.getmodule(
+                    hfi).__name__, 'hfi': hfi.__name__,
+                                  'args': (), 'kwargs': {},
+                                  'process': process.__name__,
+                                  'process_module': inspect.getmodule(
+                                      process).__name__}.items():
+                assert z['provenance'][k] == expected_v
+        if n == 'descriptor':
+            assert z['data_keys']['mask']['dtype'] == 'array'
+            assert all([a == b for a, b in
+                        zip(z['data_keys']['mask']['shape'], img_size)])
+
+        if n == 'stop':
+            assert z['exit_status'] == 'success'
+
+        if n == 'event':
+            assert_array_equal(z['data']['mask'],
+                               decompress_mask(*make_mask, img_size))
+
+
 def test_dark_subtraction_hfi(exp_db, an_db, tmp_dir, img_size):
     hdr = exp_db[-1]
     hfi = dark_subtraction_hfi
     process = sub
     dec_hfi = db_store_single_resource_single_file(
         an_db, {'img': (NPYSaver, (tmp_dir,), {})})(hfi)
-    dark_hdr = exp_db(dark_collection_uid=hdr['start']['dark_collection_uid'],
-                      is_dark=True)[0]
+    dark_hdr = exp_db[hdr['start']['sc_dk_field_uid']]
     dark_img = next(exp_db.get_events(dark_hdr,
                                       fill=True))['data']['pe1_image']
     # Actually run the thing
@@ -256,4 +288,3 @@ def test_integrate_hfi(exp_db, an_db, tmp_dir):
         if n == 'event':
             assert z['data']['iq'].shape[0] == kwargs['npt']
             assert z['data']['q'].shape[0] == kwargs['npt']
-
