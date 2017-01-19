@@ -225,3 +225,7 @@ def decompress_mask(data, indices, indptr, shape):
     cmask = csr_matrix(
         tuple([np.asarray(a) for a in [data, indices, indptr]]), shape=shape)
     return ~cmask.toarray().astype(bool)
+
+
+def correct_polarization(geo, img, polarization_factor):
+    return img/geo.polarization(img.shape, polarization_factor)
