@@ -7,6 +7,19 @@ from pprint import pprint
 from pyFAI import AzimuthalIntegrator
 
 
+def test_defensive_filestore_hfi(exp_db):
+    hdr = exp_db[-1]
+    raw_stream = exp_db.restream(hdr, fill=False)  # looks like the RE Queue
+    proc_stream = defensive_filestore_call_hfi(raw_stream, exp_db)
+    fill_stream = exp_db.restream(hdr, fill=True)
+    for s1, s2 in zip(proc_stream, fill_stream):
+        if s1[0] != 'event':
+            assert s1[1] == s2[1]
+        else:
+            assert_array_equal(s1[1]['data']['pe1_image'],
+                               s2[1]['data']['pe1_image'])
+
+
 def test_spoof_wavelength_calibration_hfi(exp_db, an_db, wavelength):
     hdr = exp_db[-1]
     hfi = spoof_wavelength_calibration_hfi
