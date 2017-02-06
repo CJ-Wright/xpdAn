@@ -35,7 +35,7 @@ class Exporter(CallbackBase):
         e.g., "/xpdUser/tiff_base/{start.sample_name}/"
     save_func: function
         The function which saves the data, must have signature
-        f(data, filename)
+        f(filename, data)
     data_fields : list, optional
         a list of strings for data fields want to be included. default
         is an empty list (not include any readback metadata in filename).
@@ -62,7 +62,8 @@ class Exporter(CallbackBase):
         # required args
         self.field = field
         self.data_dir_template = data_dir_template
-        # optioanal args 
+        self.save_func = save_func
+        # optioanal args
         self.data_fields = data_fields  # list of keys for md to include
         self.dryrun = dryrun
         self.overwrite = overwrite
@@ -118,11 +119,10 @@ class Exporter(CallbackBase):
         data = np.asarray(doc['data'][self.field])
 
         filename = self._generate_filename(doc)
-
-        self.save_func(data, filename)
+        self.filenames.append(filename)
+        self.save_func(filename, data)
 
     def stop(self, doc):
         """method for stop document"""
         self._start = None
-        self.filenames = []
         super().stop(doc)

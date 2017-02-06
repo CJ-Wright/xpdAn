@@ -17,52 +17,41 @@ import os
 import tempfile
 import pytest
 from itertools import product
-from tifffile import imread
+from tifffile import imread, imsave
 from xpdan.tests.conftest import img_size
 from xpdan.callbacks_core import Exporter
+import numpy as np
+from numpy.testing import assert_array_equal
 
 # standard config
-data_fields = ['temperature', 'diff_x', 'diff_y', 'eurotherm'] # known devices
+data_fields = ['temperature', 'diff_x', 'diff_y', 'eurotherm']  # known devices
 
 # function options
-good_params= ['save_dark']
+good_params = ['save_dark']
 allowed_kwargs = [(True, False), (True, False), (True, False)]
-#bad_params = ['save_dark', 'dryrun', 'overwrite']
-#fail_kwargs = [['fail'] for i in range(len(allowed_kwargs))]
+# bad_params = ['save_dark', 'dryrun', 'overwrite']
+# fail_kwargs = [['fail'] for i in range(len(allowed_kwargs))]
 
 # parametrize
 test_kwargs = []
 allowed_kwargs_values = product(*allowed_kwargs)
 
 for el in allowed_kwargs_values:
-    d = {k:v for k,v in zip(good_params, el)}
+    d = {k: v for k, v in zip(good_params, el)}
     test_kwargs.append((d, False))
 
 
-@pytest.mark.parametrize(("kwargs", "known_fail_bool"), test_kwargs)
-def test_tiff_export(exp_db, tif_exporter_template, img_size,
-                     kwargs, known_fail_bool):
-    tif_export = Exporter('pe1_image', tif_exporter_template,
-                          data_fields, overwrite=True, db=exp_db)
-    a = exp_db.process(exp_db[-1], tif_export)
-    # make sure files are sasved
+# @pytest.mark.parametrize(("kwargs", "known_fail_bool"), test_kwargs)
+def test_tiff_export(exp_db, tif_exporter_template):
+    tif_export = Exporter('pe1_image', tif_exporter_template, imsave,
+                          data_fields=data_fields,
+                          overwrite=True, db=exp_db)
+    exp_db.process(exp_db[-1], tif_export)
+    # make sure files are saved
     for fn in tif_export.filenames:
         assert os.path.isfile(fn)
-    # confirm image is the same as input
-    dark_fn = [fn for fn in tif_export.filenames if
-               fn.startswith('dark')]
-    light_fn = list(set(tif_export.filenames) - set(dark_fn))
-    for fn in dark_fn:
-        img = imread(fn)
-        assert img.shape == img_size
-        assert np.all(img == 1)
 
-    for fn in tif_export.filenames:
+    for fn, db_img in zip(tif_export.filenames,
+                          exp_db.get_images(exp_db[-1], 'pe1_image')):
         img = imread(fn)
-        assert img.shape == img_size
-        # logic defined in insert_img. after successful dark_sub array==0
-        assert np.all(img == 0)
-        # TODO: update this logic when we are ready for db integrated
-
-    if known_fail_bool and not a:
-        pytest.xfail('Bad params')
+        assert_array_equal(img, db_img)
