@@ -33,6 +33,10 @@ def make_glbl(env_code=0, db1=None, db2=None):
     ----------
     env_code : int
         environment variable to specify current situation
+    db1: databroker.Broker instance
+        The experimental databroker
+    db2: databroker.Broker instance
+        The analysis databroker
 
     Note
     ----
