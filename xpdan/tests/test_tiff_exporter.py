@@ -19,7 +19,7 @@ import pytest
 from itertools import product
 from tifffile import imread
 from xpdan.tests.conftest import img_size
-from xpdan.callbacks_core import XpdAcqLiveTiffExporter
+from xpdan.callbacks_core import Exporter
 
 # standard config
 data_fields = ['temperature', 'diff_x', 'diff_y', 'eurotherm'] # known devices
@@ -42,9 +42,8 @@ for el in allowed_kwargs_values:
 @pytest.mark.parametrize(("kwargs", "known_fail_bool"), test_kwargs)
 def test_tiff_export(exp_db, tif_exporter_template, img_size,
                      kwargs, known_fail_bool):
-    tif_export = XpdAcqLiveTiffExporter('pe1_image', tif_exporter_template,
-                                        data_fields, overwrite=True,
-                                        db=exp_db, **kwargs)
+    tif_export = Exporter('pe1_image', tif_exporter_template,
+                          data_fields, overwrite=True, db=exp_db)
     a = exp_db.process(exp_db[-1], tif_export)
     # make sure files are sasved
     for fn in tif_export.filenames:
