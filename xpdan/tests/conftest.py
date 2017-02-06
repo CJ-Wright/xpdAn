@@ -18,6 +18,7 @@ import sys
 
 import numpy as np
 import pytest
+import tempfile
 
 from xpdan.glbl import make_glbl
 from xpdan.io import fit2d_save
@@ -96,6 +97,14 @@ def an_db(request):
     print('CLEAN AN DB')
     clean_database(databroker)
 
+@pytest.fixture(scope='module')
+def tif_exporter_template():
+    base = tempfile.mkdtemp()
+    export_dir_template = os.path.join(base, 'xpdUser/tiff_base/')
+    yield export_dir_template
+    if os.path.isdir(export_dir_template):
+        print('tearing {}'.format(export_dir_template))
+        shutil.rmtree(export_dir_template)
 
 @pytest.fixture(scope='module')
 def handler(exp_db):

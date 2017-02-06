@@ -5,7 +5,7 @@ exclude =
     doc/conf.py,
     old,
     build,
-    dist
-    xpdan/qt_qui.py
-    xpdan/ipython_config.py
+    dist,
+    xpdan/qt_qui.py,
+    xpdan/ipython_config.py,
 max-complexity = 10
