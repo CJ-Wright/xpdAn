@@ -43,7 +43,7 @@ for el in allowed_kwargs_values:
 def test_tiff_export(exp_db, tif_exporter_template):
     tif_export = Exporter({'pe1_image': 'data'}, tif_exporter_template, imsave,
                           data_fields=data_fields,
-                          overwrite=True, db=exp_db)
+                          overwrite=True, db=exp_db, suffex='_sub')
     exp_db.process(exp_db[-1], tif_export)
     # make sure files are saved
     for fn in tif_export.filenames:

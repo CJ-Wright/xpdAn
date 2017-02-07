@@ -1,13 +1,13 @@
-from itertools import chain, tee
+from itertools import tee
 
-from redsky.savers import NPYSaver
-from redsky.streamer import db_store_single_resource_single_file
+from xpdan.callbacks import *
 from xpdan.conf_glbl import an_glbl
 from xpdan.hfi import (dark_subtraction_hfi, spoof_detector_calibration_hfi,
-                       polarization_correction_hfi, master_mask_hfi,
-                       integrate_hfi)
+                       polarization_correction_hfi, integrate_hfi,
+                       spoof_mask_hfi,
+                       defensive_filestore_call_hfi, get_dark, terminate)
 
-
+'''
 def integration_pipeline(img_stream,
                          dark_stream=None, dark_kwargs=None,
                          detector_calibration_stream=None,
@@ -171,3 +171,55 @@ def db_integrate(img_hdr, glbl=an_glbl, **kwargs):
         pass
 
     return rv
+
+'''
+
+
+def integration_pipeline(raw_no_fs,
+                         dark_stream=None, dark_kwargs=None,
+                         detector_calibration_stream=None,
+                         mask_stream=None, mask_kwargs=None,
+                         polarization_kwargs=None,
+                         integration_kwargs=None,
+                         glbl=an_glbl):
+    """This is the Feb. 7th 2017 integration pipeline for XPD it is based off
+     of xpdSchema v0
+
+    Parameters
+    ----------
+    raw_no_fs: generator
+        The generator with all the raw data
+
+    Returns
+    -------
+
+    """
+    exp_db = an_glbl.exp_db
+    raw_no_fss = tee(raw_no_fs, 3)
+    mask = spoof_mask_hfi(raw_no_fs.pop())
+    calibration = spoof_detector_calibration_hfi(raw_no_fs.pop())
+    calibrations = tee(calibration, 2)
+
+    raw = defensive_filestore_call_hfi(stream=raw_no_fss.pop(), db=exp_db)
+    raws = tee(raw, 3)
+    # export raw
+    re = (raw_exporter(d) for d in raws.pop())
+
+    dark = get_dark(raws.pop(), exp_db)
+    darks = tee(dark, 2)
+    # dark_export
+    de = (dark_exporter(d) for d in darks.pop())
+
+    dark_corrected = dark_subtraction_hfi((raws.pop(), darks.pop()),
+                                          image_name=an_glbl.det_image_field)
+    dark_correcteds = tee(dark_corrected, 2)
+    # dark corrected export
+    dce = (dark_corrected_exporter(d) for d in dark_correcteds.pop())
+
+    polarization_corrected = polarization_correction_hfi(dark_correcteds.pop(), calibrations.pop())
+
+    iq = integrate_hfi(polarization_corrected, calibration.pop(), mask)
+
+    # iq_export
+    iqe = (iq_exporter(d) for d in iq)
+    terminate(iqe, de, dce, re)

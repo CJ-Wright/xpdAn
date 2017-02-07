@@ -13,6 +13,9 @@
 #
 ##############################################################################
 import os
+
+from skbeam.io import save_output
+
 try:
     from skbeam.io.fit2d_io import fit2d_save, read_fit2d_msk
 except ImportError:
@@ -53,3 +56,6 @@ except ImportError:
         a = fabio.open(os.path.expanduser(filename))
         return ~a.data.astype(bool)
 
+
+def pipeline_save_iq(filename, q, iq):
+    save_output(q, iq, filename, 'Q')

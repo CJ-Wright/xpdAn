@@ -52,7 +52,8 @@ class Exporter(CallbackBase):
 
     def __init__(self, field, data_dir_template, save_func,
                  data_fields=None, dryrun=False,
-                 overwrite=False, db=None):
+                 overwrite=False, db=None, suffex=''):
+        self.suffex = suffex
         if data_fields is None:
             data_fields = []
         if db is None:
@@ -72,7 +73,7 @@ class Exporter(CallbackBase):
         self.filenames = []
         self._start = None
         # standard, do need to expose it to user
-        self.event_template = '{event.seq_num:03d}_{i}.tif'
+        self.event_template = '{event.seq_num:03d}_{i}{suffex}.tif'
 
     def _generate_filename(self, doc):
         """method to generate filename based on template
@@ -94,7 +95,7 @@ class Exporter(CallbackBase):
                                                  event=doc)
         event_info = self.event_template.format(i=doc['seq_num'],
                                                 start=self._start,
-                                                event=doc)
+                                                event=doc, suffex=self.suffex)
 
         # full path + complete filename
         filename = '_'.join([timestr, data_val_trunk, event_info])
