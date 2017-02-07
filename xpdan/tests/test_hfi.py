@@ -352,3 +352,36 @@ def test_integrate_hfi(exp_db, an_db, tmp_dir):
         if n == 'event':
             assert z['data']['iq'].shape[0] == kwargs['npt']
             assert z['data']['q'].shape[0] == kwargs['npt']
+
+
+def test_spoof_mask_hfi(exp_db, make_mask, img_size):
+    hdr = exp_db[-1]
+    hfi = spoof_mask_hfi
+    process = decompress_mask
+    dec_hfi = hfi
+    # Actually run the thing
+    for (n, z) in dec_hfi((exp_db.restream(hdr, fill=True), )):
+        pprint(n)
+        pprint(z)
+        print()
+        if n == 'start':
+            assert z['parents'] == [hdr['start']['uid'], ]
+            assert z['hfi'] == hfi.__name__
+            for k, expected_v in {'hfi_module': inspect.getmodule(
+                    hfi).__name__, 'hfi': hfi.__name__,
+                                  'args': (), 'kwargs': {},
+                                  'process': process.__name__,
+                                  'process_module': inspect.getmodule(
+                                      process).__name__}.items():
+                assert z['provenance'][k] == expected_v
+        if n == 'descriptor':
+            assert z['data_keys']['mask']['dtype'] == 'array'
+            assert all([a == b for a, b in
+                        zip(z['data_keys']['mask']['shape'], img_size)])
+
+        if n == 'stop':
+            assert z['exit_status'] == 'success'
+
+        if n == 'event':
+            assert_array_equal(z['data']['mask'],
+                               decompress_mask(*make_mask, img_size))

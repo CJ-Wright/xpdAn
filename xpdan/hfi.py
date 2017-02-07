@@ -434,8 +434,72 @@ def dark_subtraction_hfi(streams, *args, image_name='pe1_image',
     new_stop = dict(uid=str(uuid4()), time=time(),
                     run_start=run_start_uid, **exit_md)
     yield 'stop', new_stop
-# 3. Masking
 
+
+# 3. Masking
+def spoof_mask_hfi(streams, *args, mask_name='mask',
+                   image_name='pe1_image', **kwargs):
+    process = decompress_mask
+    hfi = spoof_mask_hfi
+    run_start_uid = str(uuid4())
+    parent_starts = [next(s)[1] for s in streams]
+    new_start_doc = dict(
+        uid=run_start_uid, time=time(),
+        parents=[s['uid'] for s in parent_starts],
+        hfi=hfi.__name__,
+        provenance=dict(
+            hfi_module=inspect.getmodule(hfi).__name__,
+            hfi=hfi.__name__,
+            process_module=inspect.getmodule(process).__name__,
+            process=process.__name__,
+            kwargs=kwargs,
+            args=args),
+    )  # More provenance to be defined (eg environment)
+    yield 'start', new_start_doc
+
+    _, desc = [n for s in streams for n in next(s)]
+
+    data_keys_dict = {'mask': dict(source='testing', dtype='array', )}
+    if 'shape' in desc['data_keys'][image_name].keys():
+        data_keys_dict['mask'].update(
+            shape=desc['data_keys'][image_name]['shape'])
+
+    new_descriptor = dict(uid=str(uuid4()), time=time(),
+                          run_start=run_start_uid,
+                          data_keys=data_keys_dict)
+    yield 'descriptor', new_descriptor
+
+    exit_md = None
+    mask_md = parent_starts[0].get(mask_name, None)
+    for i, (name, ev) in enumerate(streams[0]):
+        if name == 'stop':
+            break
+        if name != 'event':
+            raise Exception
+        try:
+            img = ev['data'][image_name]
+            if mask_md is None:
+                mask = np.ones(img.shape)
+            else:
+                # unpack here
+                mask = decompress_mask(*mask_md, img.shape)
+            results = mask
+        except Exception as e:
+            exit_md = dict(exit_status='failure', reason=repr(e),
+                           traceback=traceback.format_exc())
+            break
+
+        new_event = dict(uid=str(uuid4()), time=time(), timestamps={},
+                         descriptor=new_descriptor['uid'],
+                         data={'mask': results},
+                         seq_num=i)
+        yield 'event', new_event
+
+    if exit_md is None:
+        exit_md = {'exit_status': 'success'}
+    new_stop = dict(uid=str(uuid4()), time=time(),
+                    run_start=run_start_uid, **exit_md)
+    yield 'stop', new_stop
 
 '''
 def lower_threshold_hfi(name_doc_stream_pair, *args,

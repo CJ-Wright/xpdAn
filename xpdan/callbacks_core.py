@@ -25,8 +25,10 @@ class Exporter(CallbackBase):
 
     Parameters
     ----------
-    field : str
-        a data key, e.g., 'image'
+    field : dict
+        A map between data keys, eg. `pe1_image`, and args/kwargs in the
+        save_func, eg. `data`.
+        eg {'pe1_image': 'data'} or {'q': 'tth', 'iq': 'intensity'}
     data_dir_template : str
         A templated for directory where images will be saved to.
         It is expressed with curly brackets, which will be filled in with
@@ -35,7 +37,7 @@ class Exporter(CallbackBase):
         e.g., "/xpdUser/tiff_base/{start.sample_name}/"
     save_func: function
         The function which saves the data, must have signature
-        f(filename, data)
+        f(filename, **kwargs)
     data_fields : list, optional
         a list of strings for data fields want to be included. default
         is an empty list (not include any readback metadata in filename).
@@ -111,16 +113,16 @@ class Exporter(CallbackBase):
 
     def event(self, doc):
         """tiff-saving operation applied at event level"""
-        if self.field not in doc['data']:
+        self.db.fill_event(doc)  # modifies in place
+        try:
+            data_dict = {v: doc['data'][k] for k, v in self.field.items()}
+        except KeyError:
             raise KeyError('required field = {} is not in header'
                            .format(self.field))
 
-        self.db.fill_event(doc)  # modifies in place
-        data = np.asarray(doc['data'][self.field])
-
         filename = self._generate_filename(doc)
         self.filenames.append(filename)
-        self.save_func(filename, data)
+        self.save_func(filename, **data_dict)
 
     def stop(self, doc):
         """method for stop document"""

@@ -14,14 +14,12 @@
 ##############################################################################
 
 import os
-import tempfile
-import pytest
 from itertools import product
-from tifffile import imread, imsave
-from xpdan.tests.conftest import img_size
-from xpdan.callbacks_core import Exporter
-import numpy as np
+
 from numpy.testing import assert_array_equal
+from tifffile import imread, imsave
+
+from xpdan.callbacks_core import Exporter
 
 # standard config
 data_fields = ['temperature', 'diff_x', 'diff_y', 'eurotherm']  # known devices
@@ -43,7 +41,7 @@ for el in allowed_kwargs_values:
 
 # @pytest.mark.parametrize(("kwargs", "known_fail_bool"), test_kwargs)
 def test_tiff_export(exp_db, tif_exporter_template):
-    tif_export = Exporter('pe1_image', tif_exporter_template, imsave,
+    tif_export = Exporter({'pe1_image': 'data'}, tif_exporter_template, imsave,
                           data_fields=data_fields,
                           overwrite=True, db=exp_db)
     exp_db.process(exp_db[-1], tif_export)
@@ -51,7 +49,8 @@ def test_tiff_export(exp_db, tif_exporter_template):
     for fn in tif_export.filenames:
         assert os.path.isfile(fn)
 
-    for fn, db_img in zip(tif_export.filenames,
-                          exp_db.get_images(exp_db[-1], 'pe1_image')):
+    for i, (fn, db_img) in enumerate(zip(tif_export.filenames,
+                          exp_db.get_images(exp_db[-1], 'pe1_image'))):
         img = imread(fn)
         assert_array_equal(img, db_img)
+    assert i > 0
