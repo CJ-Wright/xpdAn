@@ -67,7 +67,7 @@ def db(request):
 
 
 @pytest.fixture(scope='module')
-def exp_db(db, tmp_dir, img_size, wavelength):
+def exp_db(db, tmp_dir, img_size, wavelength, make_mask):
     print('Making EXP DB')
     mds = db.mds
     fs = db.fs
@@ -76,12 +76,13 @@ def exp_db(db, tmp_dir, img_size, wavelength):
     cal_dict = dict(calibration_md=pyfai_dict,
                     calibration_collection_uid=str(uuid4()),
                     wavelength=wavelength)
+    const_kwargs = dict(mask=make_mask, **cal_dict)
     insert_imgs(mds, fs, 5, img_size, tmp_dir, bt_safN=0, pi_name='chris',
-                **cal_dict)
+                **const_kwargs)
     insert_imgs(mds, fs, 5, img_size, tmp_dir, pi_name='tim', bt_safN=1,
-                **cal_dict)
+                **const_kwargs)
     insert_imgs(mds, fs, 5, img_size, tmp_dir, pi_name='chris', bt_safN=2,
-                **cal_dict)
+                **const_kwargs)
     yield db
 
 
