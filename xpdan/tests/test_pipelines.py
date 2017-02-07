@@ -1,4 +1,4 @@
-from ..pipelines import integration_pipeline, db_integrate
+from ..pipelines import integration_pipeline
 from pprint import pprint
 import pytest
 
@@ -11,7 +11,7 @@ kwargs_list = [{}, dict(polarization_kwargs={'polarization_factor': .99}),
 
 @pytest.mark.parametrize('kwargs', kwargs_list)
 def test_integration_pipeline(exp_db, mk_glbl, kwargs):
-    img_stream = exp_db.restream(exp_db[-1], fill=True)
+    img_stream = exp_db.restream(exp_db[-1])
     p = integration_pipeline(img_stream, glbl=mk_glbl, **kwargs)
     for n, d in p:
         print(n)
@@ -27,7 +27,7 @@ def test_integration_pipeline(exp_db, mk_glbl, kwargs):
         if n == 'stop':
             assert d['exit_status'] == 'success'
 
-
+'''
 @pytest.mark.parametrize('kwargs', kwargs_list)
 def test_db_integrate(exp_db, mk_glbl, kwargs):
     uid = db_integrate(exp_db[-1], glbl=mk_glbl, **kwargs)
@@ -46,3 +46,4 @@ def test_db_integrate(exp_db, mk_glbl, kwargs):
                     kwargs['integration_kwargs']['npt'], )
         if n == 'stop':
             assert d['exit_status'] == 'success'
+'''

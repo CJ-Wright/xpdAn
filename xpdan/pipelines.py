@@ -68,7 +68,7 @@ def integration_pipeline(img_stream,
         # Quickly put it back on the top no one will notice
         img_stream = chain((i for i in ((name, doc),)), img_stream)
 
-    img_stream, img_stream2 = tee(img_stream, 2)
+    img_stream, img_stream2 = list(tee(img_stream, 2)
     # If None go get it and use the latest
     if dark_stream is None:
         dark_hdr = exp_db(dark_collection_uid=img_start['dark_collection_uid'],
@@ -100,7 +100,7 @@ def integration_pipeline(img_stream,
             detector_calibration_stream = db_store_single_resource_single_file(
                 an_db)(spoof_detector_calibration_hfi)(img_stream2)
 
-    detector_calibration_streams = tee(detector_calibration_stream, 3)
+    detector_calibration_streams = list(tee(detector_calibration_stream, 3)
     polarization_corrected_stream = img_dec(polarization_correction_hfi)(
         (dark_corrected_stream, detector_calibration_streams[0]),
         **polarization_kwargs)
@@ -113,7 +113,7 @@ def integration_pipeline(img_stream,
 
     # If python None create the mask
     elif mask_stream is None:
-        pre_integration_stream, pre_integration_stream2 = tee(
+        pre_integration_stream, pre_integration_stream2 = list(tee(
             polarization_corrected_stream, 2)
         mask_stream = mask_dec(master_mask_hfi)((pre_integration_stream2,
                                                  detector_calibration_streams[
@@ -194,32 +194,44 @@ def integration_pipeline(raw_no_fs,
     -------
 
     """
-    exp_db = an_glbl.exp_db
-    raw_no_fss = tee(raw_no_fs, 3)
-    mask = spoof_mask_hfi(raw_no_fs.pop())
-    calibration = spoof_detector_calibration_hfi(raw_no_fs.pop())
-    calibrations = tee(calibration, 2)
+    exp_db = glbl.exp_db
+    if dark_kwargs is None:
+        dark_kwargs = {}
+    if mask_kwargs is None:
+        mask_kwargs = {}
+    if integration_kwargs is None:
+        integration_kwargs = {'npt': 1500}  # TODO: pull dynamically
+    if polarization_kwargs is None:
+        polarization_kwargs = {'polarization_factor': .95}
+
+    raw_no_fss = list(tee(raw_no_fs, 3))
+    mask = spoof_mask_hfi([raw_no_fss.pop()])
+    calibration = spoof_detector_calibration_hfi(raw_no_fss.pop())
+    calibrations = list(tee(calibration, 2))
 
     raw = defensive_filestore_call_hfi(stream=raw_no_fss.pop(), db=exp_db)
-    raws = tee(raw, 3)
+    raws = list(tee(raw, 3))
     # export raw
-    re = (raw_exporter(d) for d in raws.pop())
+    re = (raw_exporter(*d) for d in raws.pop())
 
     dark = get_dark(raws.pop(), exp_db)
-    darks = tee(dark, 2)
+    darks = list(tee(dark, 2))
     # dark_export
-    de = (dark_exporter(d) for d in darks.pop())
+    de = (dark_exporter(*d) for d in darks.pop())
 
-    dark_corrected = dark_subtraction_hfi((raws.pop(), darks.pop()),
+    dark_corrected = dark_subtraction_hfi([raws.pop(), darks.pop()],
                                           image_name=an_glbl.det_image_field)
-    dark_correcteds = tee(dark_corrected, 2)
+    dark_correcteds = list(tee(dark_corrected, 2))
     # dark corrected export
-    dce = (dark_corrected_exporter(d) for d in dark_correcteds.pop())
+    dce = (dark_corrected_exporter(*d) for d in dark_correcteds.pop())
 
-    polarization_corrected = polarization_correction_hfi(dark_correcteds.pop(), calibrations.pop())
+    polarization_corrected = polarization_correction_hfi(
+        [dark_correcteds.pop(), calibrations.pop()], **polarization_kwargs)
 
-    iq = integrate_hfi(polarization_corrected, calibration.pop(), mask)
+    iq = integrate_hfi([polarization_corrected, calibrations.pop(), mask],
+                       **integration_kwargs)
 
+    iqs = list(tee(iq, 2))
     # iq_export
-    iqe = (iq_exporter(d) for d in iq)
-    terminate(iqe, de, dce, re)
+    iqe = (iq_exporter(*d) for d in iqs.pop())
+    yield from terminate(iqs.pop(), iqe, de, dce, re)

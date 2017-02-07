@@ -17,7 +17,7 @@ import inspect
 import itertools
 import traceback
 import types
-from itertools import chain
+from itertools import chain, zip_longest
 from operator import sub
 from time import time
 from uuid import uuid4
@@ -30,7 +30,7 @@ from .tools import *
 
 def defensive_filestore_call_hfi(stream, db):
     for name, doc in stream:
-        if name == 'event':
+        if name == 'event' and not all([v for v in doc['filled'].values()]):
             db.fill_event(doc)
         yield name, doc
 
@@ -711,18 +711,20 @@ def master_mask_hfi(streams, *args, mask_stream=None,
 
 
 # 4. Integration
-def integrate_hfi(streams, *args, mask_stream=None,
+def integrate_hfi(streams, *args,
                   image_name='img', calibration_name='detector_calibration',
                   mask_name='mask',
                   **kwargs):
     geo = AzimuthalIntegrator()
     hfi = integrate_hfi
     process = geo.integrate1d
-    image_stream, calibration_stream = streams
-    if mask_stream:
-        temp_streams = list(streams)
-        temp_streams.append(mask_stream)
-        streams = tuple(temp_streams)
+    if len(streams) == 2:
+        image_stream, calibration_stream = streams
+        mask_stream = None
+    elif len(streams) == 3:
+        image_stream, calibration_stream, mask_stream = streams
+    else:
+        raise RuntimeError('Need either 2 streams or 3 streams')
     run_start_uid = str(uuid4())
     new_start_doc = dict(
         uid=run_start_uid, time=time(),
@@ -869,5 +871,5 @@ def get_dark(stream, db):
 
 
 def terminate(*args):
-    for n in zip(*args):
-        yield n
+    for n in zip_longest(*args):
+        yield n[0]
