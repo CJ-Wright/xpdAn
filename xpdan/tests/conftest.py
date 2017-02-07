@@ -29,6 +29,7 @@ from xpdan.fuzzybroker import FuzzyBroker
 from pkg_resources import resource_filename as rs_fn
 import yaml
 from uuid import uuid4
+from xpdan.tools import compress_mask
 
 pyfai_path = rs_fn('xpdan', 'data/pyfai/pyFAI_calib.yml')
 
@@ -151,3 +152,9 @@ def tmp_dir():
     if os.path.exists(td):
         print('removing {}'.format(td))
         shutil.rmtree(td)
+
+
+@pytest.fixture(scope='module')
+def make_mask(img_size):
+    mask = np.random.random_integers(0, 1, img_size).astype(bool)
+    return compress_mask(mask)
