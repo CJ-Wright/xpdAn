@@ -46,6 +46,7 @@ def insert_imgs(mds, fs, n, shape, save_dir=tempfile.mkdtemp(),
                                      name='test-dark',
                                      dark_collection_uid=dark_collection_uid,
                                      beamtime_uid=beamtime_uid,
+                                     sample_name='hi',
                                      is_dark=True, **kwargs)
     data_keys = {
         'pe1_image': dict(source='testing', external='FILESTORE:',
