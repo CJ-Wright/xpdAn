@@ -32,13 +32,7 @@ def defensive_filestore_call_hfi(stream, db):
     for name, doc in stream:
         if name == 'event' and ('filled' not in doc or not all(
                 [v for v in doc['filled'].values()])):
-            print([v for v in doc['filled'].values()])
-            print(all([v for v in doc['filled'].values()]))
-            print(doc['data'])
             db.fill_event(doc)
-            print([v for v in doc['filled'].values()])
-            print(all([v for v in doc['filled'].values()]))
-            print(doc['data'])
         yield name, doc
 
 
