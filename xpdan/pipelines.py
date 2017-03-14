@@ -212,18 +212,18 @@ def integration_pipeline(raw_no_fs,
     raw = defensive_filestore_call_hfi(stream=raw_no_fss.pop(), db=exp_db)
     raws = list(tee(raw, 3))
     # export raw
-    re = (raw_exporter(*d) for d in raws.pop())
+    # re = (raw_exporter(*d) for d in raws.pop())
 
     dark = get_dark(raws.pop(), exp_db)
     darks = list(tee(dark, 2))
     # dark_export
-    de = (dark_exporter(*d) for d in darks.pop())
+    # de = (dark_exporter(*d) for d in darks.pop())
 
     dark_corrected = dark_subtraction_hfi([raws.pop(), darks.pop()],
                                           image_name=an_glbl.det_image_field)
     dark_correcteds = list(tee(dark_corrected, 2))
     # dark corrected export
-    dce = (dark_corrected_exporter(*d) for d in dark_correcteds.pop())
+    # dce = (dark_corrected_exporter(*d) for d in dark_correcteds.pop())
 
     polarization_corrected = polarization_correction_hfi(
         [dark_correcteds.pop(), calibrations.pop()], **polarization_kwargs)
@@ -233,5 +233,5 @@ def integration_pipeline(raw_no_fs,
 
     iqs = list(tee(iq, 2))
     # iq_export
-    iqe = (iq_exporter(*d) for d in iqs.pop())
-    yield from terminate(iqs.pop(), iqe, de, dce, re)
+    # iqe = (iq_exporter(*d) for d in iqs.pop())
+    yield from terminate(iqs.pop())

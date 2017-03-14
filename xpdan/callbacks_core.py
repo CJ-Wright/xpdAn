@@ -116,6 +116,7 @@ class Exporter(CallbackBase):
         """tiff-saving operation applied at event level"""
         if 'filled' not in doc.keys() or not all(
                 [v for v in doc['filled'].values()]):
+            print(doc)
             self.db.fill_event(doc)  # modifies in place
         try:
             data_dict = {v: doc['data'][k] for k, v in self.field.items()}
