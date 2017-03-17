@@ -27,7 +27,8 @@ from .utils import _clean_info, _timestampstr
 
 # top definition for minimal impacts on the code
 
-w_dir = os.path.join(an_glbl.home, 'tiff_base')
+w_dir = an_glbl['tiff_base']
+# TODO: can we please get rid of this?
 W_DIR = w_dir  # in case of crashes in old codes
 
 
@@ -37,7 +38,7 @@ class DataReduction:
         Note: not a callback
     """
 
-    def __init__(self, exp_db=an_glbl.exp_db, image_field=None):
+    def __init__(self, exp_db=an_glbl['exp_db'], image_field=None):
         # for file name 
         self.fields = ['sample_name', 'sp_type', 'sp_requested_exposure']
         self.labels = ['dark_frame']
@@ -45,7 +46,7 @@ class DataReduction:
         self.root_dir_name = 'sample_name'
         self.exp_db = exp_db
         if image_field is None:
-            self.image_field = an_glbl.det_image_field
+            self.image_field = an_glbl['det_image_field']
 
     def _feature_gen(self, event):
         """ generate a human readable file name.
@@ -88,7 +89,7 @@ class DataReduction:
         return "_".join(feature_list)
 
     def pull_dark(self, header):
-        dark_uid = header.start.get(an_glbl.dark_field_key, None)
+        dark_uid = header.start.get(an_glbl['dark_field_key'], None)
         if dark_uid is None:
             print("INFO: no dark frame is associated in this header, "
                   "subtraction will not be processed")
@@ -155,8 +156,8 @@ def _prepare_header_list(headers):
 def _load_config(header):
     try:
         with open(
-                os.path.join(an_glbl.config_base,
-                             an_glbl.calib_config_name)) as f:
+                os.path.join(an_glbl['config_base'],
+                             an_glbl['calib_config_name'])) as f:
             config_dict = yaml.load(f)
     except FileNotFoundError:
         config_dict = header.start.get('calibration_md', None)
@@ -318,7 +319,7 @@ def integrate_and_save(headers, dark_sub_bool=True,
                           .format(f_name))
                     mask = decompress_mask(data, ind, indptr, img.shape)
             elif mask_setting == 'auto':
-                mask = mask_img(img, ai, **an_glbl.mask_dict)
+                mask = mask_img(img, ai, **an_glbl['mask_dict'])
             elif mask_setting == 'None':
                 mask = None
 
