@@ -24,7 +24,6 @@ from uuid import uuid4
 
 from pyFAI import AzimuthalIntegrator
 
-from xpdan.glbl import an_glbl
 from .tools import *
 
 
@@ -864,10 +863,13 @@ def background_subtraction_hfi(streams, *args, background_event_number=0,
 # 6. G(r) calculation
 
 
-def get_dark(stream, db):
+def get_dark(stream, db, dark_field_key):
     n, start = next(stream)
-    dark_uid = start.get(an_glbl.dark_field_key, None)
-    dark_hdr = db(**{'dark_collection_uid': dark_uid, 'is_dark': True})[0]
+    dark_uid = start.get(dark_field_key, None)
+    # new schema
+    # dark_hdr = db(**{'dark_collection_uid': dark_uid, 'is_dark': True})[0]
+    # old schema
+    dark_hdr = db[dark_uid]
     yield from db.restream(dark_hdr, fill=True)
 
 
