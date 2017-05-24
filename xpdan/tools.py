@@ -83,7 +83,7 @@ def mask_img(img, geo,
              lower_thresh=0.0,
              upper_thresh=None,
              bs_width=13, tri_offset=13, v_asym=0,
-             alpha=2.5,
+             alpha=3.,
              tmsk=None):
     """
     Mask an image based off of various methods
