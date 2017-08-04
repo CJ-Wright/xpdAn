@@ -16,6 +16,7 @@ import numpy as np
 import scipy.stats as sts
 from matplotlib.path import Path
 from scipy.sparse import csr_matrix
+from itertools import islice
 
 # Ideally we would pull these functions from scikit-beam
 try:
@@ -241,3 +242,22 @@ def decompress_mask(data, indices, indptr, shape):
     cmask = csr_matrix(
         tuple([np.asarray(a) for a in [data, indices, indptr]]), shape=shape)
     return ~cmask.toarray().astype(bool)
+
+
+def query_dark(db, docs):
+    doc = docs[0]
+    return db(uid=doc['sc_dk_field_uid'])
+
+
+def query_background(db, docs):
+    doc = docs[0]
+    return db(sample_name=doc['background_name'],
+              is_dark={'$exists': False})
+
+
+def temporal_prox(res, docs):
+    doc = docs[0]
+    t = doc['time']
+    dt_sq = [(t - r['time']) ** 2 for r in res]
+    i = dt_sq.index(min(dt_sq))
+    return next(islice(dt_sq, i, i + 1))
