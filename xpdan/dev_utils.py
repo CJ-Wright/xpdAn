@@ -11,6 +11,7 @@ def _timestampstr(timestamp):
         '%Y%m%d-%H%M%S')
     return timestring
 
+
 def _munge_time(t, timezone):
     """Close your eyes and trust @arkilic
 
