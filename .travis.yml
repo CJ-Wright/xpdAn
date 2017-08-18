@@ -11,6 +11,9 @@ env:
   matrix:
     - CUTTING_EDGE=true
     - CUTTING_EDGE=false
+matrix:
+  allow_failures:
+    - env: CUTTING_EDGE=false
 
 cache:
   directories:
