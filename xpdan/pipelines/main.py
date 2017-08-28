@@ -254,10 +254,11 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
     ai_stream = es.map(lambda x: x.ai,
                        calibration_stream,
                        input_info={'x': 'calibrant'},
-                       output_info=[('geo', {'dtype': 'object',
-                                             'source': 'workflow',
-                                             'instance': 'pyFAI.azimuthalIntegrator'
-                                                         '.AzimuthalIntegrator'})]
+                       output_info=[('geo',
+                                     {'dtype': 'object',
+                                      'source': 'workflow',
+                                      'instance': 'pyFAI.azimuthalIntegrator'
+                                                  '.AzimuthalIntegrator'})],
                        )
 
     # else get calibration from header
