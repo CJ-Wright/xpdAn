@@ -27,6 +27,13 @@ from xpdan.tools import (pull_array, event_count,
                          pdf_getter, fq_getter, overlay_mask)
 from xpdview.callbacks import LiveWaterfall
 from ..calib import img_calibration, _save_calib_param
+from bluesky.callbacks.core import CallbackBase
+
+
+class PrinterCallback(CallbackBase):
+    def event(self, doc):
+        print('file saved at {}'.format(doc[0]['data']['filename']))
+        super().event(doc)
 
 
 def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
@@ -126,7 +133,8 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
     # Do the dark subtraction
     zlid = es.zip_latest(if_not_dark_stream_primary,
                          dark_query_results,
-                         stream_name='Combine darks and lights')
+                         stream_name='Combine darks and lights',
+                         clear_on_lossless_stop=True)
     dark_sub_fg = es.map(sub,
                          zlid,
                          input_info={0: (image_data_key, 0),
@@ -162,7 +170,8 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
     # Perform dark subtraction on everything
     dark_sub_bg = es.map(sub,
                          es.zip_latest(bg_stream, bg_dark_stream,
-                                       stream_name='Combine bg and bg dark'),
+                                       stream_name='Combine bg and bg dark',
+                                       clear_on_lossless_stop=True),
                          input_info={0: (image_data_key, 0),
                                      1: (image_data_key, 1)},
                          output_info=[('img', {'dtype': 'array',
@@ -197,7 +206,8 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
 
     # combine the fg with the summed_bg
     fg_bg = es.zip_latest(dark_sub_fg, ave_bg,
-                          stream_name='Combine fg with bg')
+                          stream_name='Combine fg with bg',
+                          clear_on_lossless_stop=True)
 
     # subtract the background images
     fg_sub_bg = es.map(sub,
@@ -212,7 +222,8 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
     # else do nothing
     eventify_nhdrs = es.Eventify(bg_query_stream, 'n_hdrs',
                                  output_info=[('n_hdrs', {})])
-    zldb = es.zip_latest(dark_sub_fg, eventify_nhdrs)
+    zldb = es.zip_latest(dark_sub_fg, eventify_nhdrs,
+                         clear_on_lossless_stop=True)
     if_not_background_stream = es.filter(
         lambda x: not if_query_results(x),
         zldb,
@@ -317,7 +328,8 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                                        p_corrected_stream,
                                        input_info={0: 'seq_num'},
                                        full_event=True),
-                             loaded_calibration_stream)
+                             loaded_calibration_stream,
+                             clear_on_lossless_stop=True)
         mask_stream = es.map(lambda x: np.ones(x.shape, dtype=bool),
                              zlfc,
                              input_info={'x': ('img', 0)},
@@ -334,16 +346,18 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                                            p_corrected_stream,
                                            input_info={0: 'seq_num'},
                                            full_event=True),
-                                 loaded_calibration_stream)
+                                 loaded_calibration_stream,
+                                 clear_on_lossless_stop=True)
         else:
-            zlfc = es.zip_latest(p_corrected_stream, loaded_calibration_stream)
+            zlfc = es.zip_latest(p_corrected_stream, loaded_calibration_stream,
+                                 clear_on_lossless_stop=True)
 
         zlfc_ds = es.zip_latest(zlfc, if_not_dark_stream,
                                 clear_on_lossless_stop=True)
         if_setup_stream = es.filter(
             lambda sn: sn == 'Setup',
             zlfc_ds,
-            input_info={0: (('sample_name', ), 2)},
+            input_info={0: (('sample_name',), 2)},
             document_name='start',
             full_event=True,
             stream_name='Is Setup Mask'
@@ -380,7 +394,8 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
         mask_stream = not_setup_mask_stream.union(blank_mask_stream)
         mask_stream.stream_name = 'If Setup pull Dummy Mask, else Mask'
     # generate binner stream
-    zlmc = es.zip_latest(mask_stream, loaded_calibration_stream)
+    zlmc = es.zip_latest(mask_stream, loaded_calibration_stream,
+                         clear_on_lossless_stop=True)
 
     binner_stream = es.map(generate_binner,
                            zlmc,
@@ -390,7 +405,8 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                                                     'source': 'testing'})],
                            img_shape=(2048, 2048),
                            stream_name='Binners')
-    zlpb = es.zip_latest(p_corrected_stream, binner_stream)
+    zlpb = es.zip_latest(p_corrected_stream, binner_stream,
+                         clear_on_lossless_stop=True)
 
     iq_stream = es.map(integrate,
                        zlpb,
@@ -402,10 +418,13 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                                             'source': 'testing'})],
                        stream_name='I(Q)',
                        md=dict(analysis_stage='iq_q'))
+    iq_rs_zl = es.zip_latest(iq_stream, eventify_raw_start,
+                             clear_on_lossless_stop=True)
+
     # convert to tth
     tth_stream = es.map(lambda q, wavelength: np.rad2deg(
         q_to_twotheta(q, wavelength)),
-                        es.zip_latest(iq_stream, eventify_raw_start),
+                        iq_rs_zl,
                         input_info={'q': ('q', 0),
                                     'wavelength': ('bt_wavelength', 1)},
                         output_info=[('tth', {'dtype': 'array',
@@ -424,7 +443,7 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                            )
 
     fq_stream = es.map(fq_getter,
-                       es.zip_latest(iq_stream, eventify_raw_start),
+                       iq_rs_zl,
                        input_info={0: ('q', 0), 1: ('iq', 0),
                                    'composition': ('composition_string', 1)},
                        output_info=[('q', {'dtype': 'array'}),
@@ -433,7 +452,7 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                        dataformat='QA', qmaxinst=28, qmax=22,
                        md=dict(analysis_stage='fq'))
     pdf_stream = es.map(pdf_getter,
-                        es.zip_latest(iq_stream, eventify_raw_start),
+                        iq_rs_zl,
                         input_info={0: ('q', 0), 1: ('iq', 0),
                                     'composition': ('composition_string', 1)},
                         output_info=[('r', {'dtype': 'array'}),
@@ -598,15 +617,17 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
         # if_not_dark_stream.sink(pprint)
         # foreground_stream.sink(pprint)
         # zlfl.sink(pprint)
-        # p_corrected_stream.sink(pprint)
-        # zlmc.sink(pprint)
+        p_corrected_stream.sink(pprint)
+        zlmc.sink(pprint)
         # binner_stream.sink(pprint)
         # zlpb.sink(pprint)
         # iq_stream.sink(pprint)
         # pdf_stream.sink(pprint)
         # mask_stream.sink(pprint)
         if write_to_disk:
-            md_render.sink(pprint)
-            [cs.sink(pprint) for cs in mega_render]
+            # md_render.sink(pprint)
+            [es.zip(cs, streams_to_be_s).sink(star(PrinterCallback())
+                                              ) for cs, streams_to_be_s in zip(
+                mega_render, streams_to_be_saved)]
     print('Finish pipeline configuration')
     return raw_source
