@@ -19,15 +19,21 @@ from xpdan.data_reduction import (integrate_and_save, integrate_and_save_last,
 
 
 def test_integrate_smoke(exp_db, fast_tmp_dir):
-    old_files = os.listdir(fast_tmp_dir)
-    old_times = [os.path.getmtime(os.path.join(fast_tmp_dir, f)) for f in
-                 os.listdir(fast_tmp_dir)]
     integrate_and_save(exp_db[-1], db=exp_db, save_dir=fast_tmp_dir,
                        mask_setting=None)
-    assert (set(old_files) != set(os.listdir(fast_tmp_dir)) or set(
-        old_times) != set(
-        [os.path.getmtime(os.path.join(fast_tmp_dir, f)) for f in
-         os.listdir(fast_tmp_dir)]))
+    for root, dirs, files in os.walk(fast_tmp_dir):
+        level = root.replace(fast_tmp_dir, '').count(os.sep)
+        indent = ' ' * 4 * level
+        print('{}{}/'.format(indent, os.path.basename(root)))
+        subindent = ' ' * 4 * (level + 1)
+        for f in files:
+            print('{}{}'.format(subindent, f))
+    assert 'Au' in os.listdir(fast_tmp_dir)
+    assert 'Au_{:.6}.yml'.format(exp_db[-1]['start']['uid']) in os.listdir(
+        os.path.join(fast_tmp_dir, 'Au'))
+    for f in ['dark_sub', 'mask', 'iq_q', 'iq_tth', 'pdf']:
+        assert f in os.listdir(
+            os.path.join(fast_tmp_dir, 'Au'))
 
 
 def test_integrate_last_smoke(exp_db, fast_tmp_dir):
@@ -36,10 +42,19 @@ def test_integrate_last_smoke(exp_db, fast_tmp_dir):
                  os.listdir(fast_tmp_dir)]
     integrate_and_save_last(db=exp_db, save_dir=fast_tmp_dir,
                             mask_setting=None)
-    assert (set(old_files) != set(os.listdir(fast_tmp_dir)) or set(
-        old_times) != set(
-        [os.path.getmtime(os.path.join(fast_tmp_dir, f)) for f in
-         os.listdir(fast_tmp_dir)]))
+    for root, dirs, files in os.walk(fast_tmp_dir):
+        level = root.replace(fast_tmp_dir, '').count(os.sep)
+        indent = ' ' * 4 * level
+        print('{}{}/'.format(indent, os.path.basename(root)))
+        subindent = ' ' * 4 * (level + 1)
+        for f in files:
+            print('{}{}'.format(subindent, f))
+    assert 'Au' in os.listdir(fast_tmp_dir)
+    assert 'Au_{:.6}.yml'.format(exp_db[-1]['start']['uid']) in os.listdir(
+        os.path.join(fast_tmp_dir, 'Au'))
+    for f in ['dark_sub', 'mask', 'iq_q', 'iq_tth', 'pdf']:
+        assert f in os.listdir(
+            os.path.join(fast_tmp_dir, 'Au'))
 
 
 def test_save_tiff_smoke(exp_db, fast_tmp_dir):
@@ -48,11 +63,19 @@ def test_save_tiff_smoke(exp_db, fast_tmp_dir):
                  os.listdir(fast_tmp_dir)]
     save_tiff(exp_db[-1], db=exp_db, save_dir=fast_tmp_dir)
 
-    assert (
-        set(old_files) != set(os.listdir(fast_tmp_dir)) or set(
-            old_times) != set(
-            [os.path.getmtime(os.path.join(fast_tmp_dir, f)) for f in
-             os.listdir(fast_tmp_dir)]))
+    for root, dirs, files in os.walk(fast_tmp_dir):
+        level = root.replace(fast_tmp_dir, '').count(os.sep)
+        indent = ' ' * 4 * level
+        print('{}{}/'.format(indent, os.path.basename(root)))
+        subindent = ' ' * 4 * (level + 1)
+        for f in files:
+            print('{}{}'.format(subindent, f))
+    assert 'Au' in os.listdir(fast_tmp_dir)
+    assert 'Au_{:.6}.yml'.format(exp_db[-1]['start']['uid']) in os.listdir(
+        os.path.join(fast_tmp_dir, 'Au'))
+    for f in ['dark_sub', 'mask', 'iq_q', 'iq_tth', 'pdf']:
+        assert f in os.listdir(
+            os.path.join(fast_tmp_dir, 'Au'))
 
 
 def test_save_last_tiff_smoke(exp_db, fast_tmp_dir):
@@ -61,8 +84,16 @@ def test_save_last_tiff_smoke(exp_db, fast_tmp_dir):
                  os.listdir(fast_tmp_dir)]
     save_last_tiff(db=exp_db, save_dir=fast_tmp_dir)
 
-    assert (
-        set(old_files) != set(os.listdir(fast_tmp_dir)) or set(
-            old_times) != set(
-            [os.path.getmtime(os.path.join(fast_tmp_dir, f)) for f in
-             os.listdir(fast_tmp_dir)]))
+    for root, dirs, files in os.walk(fast_tmp_dir):
+        level = root.replace(fast_tmp_dir, '').count(os.sep)
+        indent = ' ' * 4 * level
+        print('{}{}/'.format(indent, os.path.basename(root)))
+        subindent = ' ' * 4 * (level + 1)
+        for f in files:
+            print('{}{}'.format(subindent, f))
+    assert 'Au' in os.listdir(fast_tmp_dir)
+    assert 'Au_{:.6}.yml'.format(exp_db[-1]['start']['uid']) in os.listdir(
+        os.path.join(fast_tmp_dir, 'Au'))
+    for f in ['dark_sub', 'mask', 'iq_q', 'iq_tth', 'pdf']:
+        assert f in os.listdir(
+            os.path.join(fast_tmp_dir, 'Au'))

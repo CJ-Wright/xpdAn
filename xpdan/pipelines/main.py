@@ -40,8 +40,21 @@ class PrinterCallback(CallbackBase):
         self.analysis_stage = doc[1]['analysis_stage']
 
     def event(self, doc):
-        print('file saved 1at {}'.format(doc[0]['data']['filename']))
+        print('file saved at {}'.format(doc[0]['data']['filename']))
         super().event(doc)
+
+
+class ClearOnStart(es.EventStream):
+    def __init__(self, upstream, **kwargs):
+        es.EventStream.__init__(self, upstream=upstream, **kwargs)
+        self.descs = None
+
+    def update(self, x, who=None):
+        if x[0] == 'start':
+            L = [self.emit(('clear', None)), self.emit(x)]
+        else:
+            L = self.emit(x)
+        return L
 
 
 def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
@@ -110,11 +123,16 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
     raw_source = Stream(stream_name='Raw Data')  # raw data
     source = es.fill_events(db, raw_source)  # filled raw data
 
-    if_not_dark_stream = es.filter(lambda x: not if_dark(x), source,
-                                   input_info={0: ((), 0)},
-                                   document_name='start',
-                                   stream_name='If not dark',
-                                   full_event=True)
+    if_not_dark_stream_no_clear = es.filter(lambda x: not if_dark(x), source,
+                                            input_info={0: ((), 0)},
+                                            document_name='start',
+                                            stream_name='If not dark',
+                                            full_event=True)
+    # Inject a clear doc upon start here
+    if_not_dark_stream = ClearOnStart(if_not_dark_stream_no_clear)
+
+    # Let the users know when their data has start/finished analysis
+    # May need to get fancier about this if we buffer a lot
     if_not_dark_stream.sink(star(StartStopCallback()))
     eventify_raw_start = es.Eventify(if_not_dark_stream,
                                      stream_name='eventify raw start')
@@ -126,6 +144,7 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                                 stream_name='human timestamp')
 
     # only the primary stream
+    # TODO: this needs a fix
     if_not_dark_stream_primary = es.filter(lambda x: x[0]['name'] == 'primary',
                                            if_not_dark_stream,
                                            document_name='descriptor',
@@ -202,7 +221,8 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                              output_info=[('count', {
                                  'dtype': 'int',
                                  'source': 'testing'})])
-    ave_bg = es.map(truediv, es.zip(summed_bg, count_bg),
+    ave_bg = es.map(truediv, es.zip(summed_bg, count_bg,
+                                    stream_name='summedbg count bg'),
                     input_info={0: ('img', 0), 1: ('count', 1)},
                     output_info=[('img', {
                         'dtype': 'array',
@@ -243,8 +263,10 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
     # CALIBRATION PROCESSING
 
     # if calibration send to calibration runner
-    zlfi = es.zip_latest(foreground_stream, es.zip(
-        if_not_dark_stream, eventify_raw_start), clear_on_lossless_stop=True)
+    zlfi = es.zip(foreground_stream, es.zip(
+        if_not_dark_stream, eventify_raw_start,
+        stream_name='zip_not_dark_eventify'),
+                  stream_name='zip_forground')
     if_calibration_stream = es.filter(if_calibration,
                                       zlfi,
                                       input_info={0: ((), 1)},
@@ -277,7 +299,8 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                                 full_event=True)
     # write calibration info into xpdAcq sacred place
     es.map(_save_calib_param,
-           es.zip(calibration_stream, h_timestamp_stream),
+           es.zip(calibration_stream, h_timestamp_stream,
+                  stream_name='zip_calibration_timestamp'),
            calib_yml_fp=os.path.join(calibration_md_folder,
                                      'xpdAcq_calib_info.yml'),
            input_info={'calib_c': (('data', 'calibration'), 0),
@@ -318,8 +341,7 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
     # polarization correction
     # SPLIT INTO TWO NODES
     zlfl = es.zip_latest(foreground_stream, loaded_calibration_stream,
-                         stream_name='Combine FG and Calibration',
-                         clear_on_lossless_stop=True)
+                         stream_name='Combine FG and Calibration')
     p_corrected_stream = es.map(polarization_correction,
                                 zlfl,
                                 input_info={'img': ('img', 0),
@@ -400,8 +422,7 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
         mask_stream = not_setup_mask_stream.union(blank_mask_stream)
         mask_stream.stream_name = 'If Setup pull Dummy Mask, else Mask'
     # generate binner stream
-    zlmc = es.zip_latest(mask_stream, loaded_calibration_stream,
-                         clear_on_lossless_stop=True)
+    zlmc = es.zip_latest(mask_stream, loaded_calibration_stream)
 
     binner_stream = es.map(generate_binner,
                            zlmc,
@@ -438,7 +459,8 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                                               'units': 'degrees'})])
 
     tth_iq_stream = es.map(lambda **x: (x['tth'], x['iq']),
-                           es.zip(tth_stream, iq_stream),
+                           es.zip(tth_stream, iq_stream,
+                                  stream_name='zip_tth_iq'),
                            input_info={'tth': ('tth', 0),
                                        'iq': ('iq', 1)},
                            output_info=[('tth', {'dtype': 'array',
@@ -610,6 +632,12 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                            1: (('data',), 0)},
                full_event=True,
                stream_name='dump yaml'))
+        [es.zip(cs,
+                streams_to_be_s, zip_type='truncate',
+                stream_name='zip_print'
+                ).sink(star(PrinterCallback())
+                       ) for cs, streams_to_be_s in zip(
+            mega_render, streams_to_be_saved)]
     if verbose:
         # if_calibration_stream.sink(pprint)
         # dark_sub_fg.sink(pprint)
@@ -637,12 +665,8 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
         # pdf_stream.sink(pprint)
         # mask_stream.sink(pprint)
         if write_to_disk:
-            md_render.sink(pprint)
-            [es.zip(cs,
-                    streams_to_be_s, zip_type='truncate',
-                    stream_name='zip_print'
-                    ).sink(star(PrinterCallback())
-                           ) for cs, streams_to_be_s in zip(
-                mega_render, streams_to_be_saved)]
+            # md_render.sink(pprint)
+            pass
+
     print('Finish pipeline configuration')
     return raw_source
