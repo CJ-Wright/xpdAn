@@ -75,6 +75,34 @@ class NormalizeCryostream(es.EventStream):
         return self.emit(x)
 
 
+class NormalizeComposition(es.EventStream):
+    def __init__(self, upstream, **kwargs):
+        es.EventStream.__init__(self, upstream=upstream, **kwargs)
+        self.lt = {'check': 'Li1Zn0.9Mn0.1As',
+                   'x29': 'Sr0.71Na0.29Fe2As2',
+                   'DMS_non': 'Li1Zn0.9Mn0.1As',
+                   'x0': 'Sr1Fe2As2',
+                   'x12': 'Sr0.88Na0.12Fe2As2',
+                   'DMS_udd': 'Li1.1Zn0.95Mn0.05As',
+                   'x32': 'Sr0.68Na0.32Fe2As2',
+                   'FeSe': 'Fe1Se1',
+                   'x19': 'Sr0.81Na0.19Fe2As2',
+                   'DMS_opd': 'Li1.1Zn0.9Mn0.1As',
+                   'Setup': 'Ni',
+                   'DMS_parent': 'Li1Zn1As1',
+                   'x48': 'Sr0.52Na0.48Fe2As2 ',
+                   'Ni': 'Ni',
+                   'kapton_1mmOD': 'C12H12N2O',
+                   'x45': 'Sr0.55Na0.45Fe2As2',
+                   'x34': 'Sr0.66Na0.34Fe2As2'}
+
+    def update(self, x, who=None):
+        name, doc = x
+        if name == 'start':
+            doc['composition_string'] = self.lt[doc['sample_name']]
+        return self.emit(x)
+
+
 def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                        polarization_factor=.99,
                        image_data_key='pe1_image',
@@ -147,8 +175,12 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                                             stream_name='If not dark',
                                             full_event=True)
     norm_cryostream = NormalizeCryostream(if_not_dark_stream_no_clear)
+
+    # THIS LINE IS FOR BEN ONLY NO ONE ELSE USE THIS!!!!!!!!!!!!!!!!!!!!!!!!!!
+    norm_comp = NormalizeComposition(norm_cryostream)
+
     # Inject a clear doc upon start here
-    if_not_dark_stream = ClearOnStart(norm_cryostream)
+    if_not_dark_stream = ClearOnStart(norm_comp)
 
     # Let the users know when their data has start/finished analysis
     # May need to get fancier about this if we buffer a lot

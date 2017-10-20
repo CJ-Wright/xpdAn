@@ -29,6 +29,8 @@ td = TemporaryDirectory()
 def to_cryostream(x):
     """Make normal data look like cryostat"""
     name, doc = x
+    if name == 'start':
+        doc['sample_name'] = 'x48'
     if name == 'descriptor':
         doc.update({'configuration':
                         {'cryostat':
@@ -290,7 +292,9 @@ for hdr in list((db[-1],)):
         if e[0] == 'event' and vis:
             plt.pause(.1)
         source.emit(e)
+print('clearing tempdir')
 td.cleanup()
+print('tempdir clear')
 if vis:
     plt.show()
     plt.close("all")
