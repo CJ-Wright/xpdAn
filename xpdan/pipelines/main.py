@@ -47,7 +47,6 @@ class PrinterCallback(CallbackBase):
 class ClearOnStart(es.EventStream):
     def __init__(self, upstream, **kwargs):
         es.EventStream.__init__(self, upstream=upstream, **kwargs)
-        self.descs = None
 
     def update(self, x, who=None):
         if x[0] == 'start':
@@ -55,6 +54,25 @@ class ClearOnStart(es.EventStream):
         else:
             L = self.emit(x)
         return L
+        # return self.emit(x)
+
+
+class NormalizeCryostream(es.EventStream):
+    def __init__(self, upstream, **kwargs):
+        es.EventStream.__init__(self, upstream=upstream, **kwargs)
+
+    def update(self, x, who=None):
+        name, doc = x
+        if name == 'descriptor' and 'cryostat_T' in doc['data_keys']:
+            # add units
+            doc['data_keys']['cryostat_T']['units'] = 'K'
+            # rename to temperature
+            doc['data_keys']['temperature'] = doc['data_keys'].pop(
+                'cryostat_T')
+        # change name to temperature
+        elif name == 'event' and 'cryostat_T' in doc['data']:
+            doc['data']['temperature'] = doc['data'].pop('cryostat_T')
+        return self.emit(x)
 
 
 def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
@@ -128,27 +146,21 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                                             document_name='start',
                                             stream_name='If not dark',
                                             full_event=True)
+    norm_cryostream = NormalizeCryostream(if_not_dark_stream_no_clear)
     # Inject a clear doc upon start here
-    if_not_dark_stream = ClearOnStart(if_not_dark_stream_no_clear)
+    if_not_dark_stream = ClearOnStart(norm_cryostream)
 
     # Let the users know when their data has start/finished analysis
     # May need to get fancier about this if we buffer a lot
     if_not_dark_stream.sink(star(StartStopCallback()))
     eventify_raw_start = es.Eventify(if_not_dark_stream,
                                      stream_name='eventify raw start')
-    h_timestamp_stream = es.map(_timestampstr, eventify_raw_start,
+    h_timestamp_stream = es.map(_timestampstr, if_not_dark_stream,
                                 input_info={0: 'time'},
                                 output_info=[('human_timestamp',
                                               {'dtype': 'str'})],
                                 full_event=True,
                                 stream_name='human timestamp')
-
-    # only the primary stream
-    # TODO: this needs a fix
-    if_not_dark_stream_primary = es.filter(lambda x: x[0]['name'] == 'primary',
-                                           if_not_dark_stream,
-                                           document_name='descriptor',
-                                           stream_name='Primary')
 
     dark_query = es.Query(db,
                           if_not_dark_stream,
@@ -158,7 +170,7 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
     dark_query_results = es.QueryUnpacker(db, dark_query,
                                           stream_name='Unpack FG Dark')
     # Do the dark subtraction
-    zlid = es.zip_latest(if_not_dark_stream_primary,
+    zlid = es.zip_latest(if_not_dark_stream,
                          dark_query_results,
                          stream_name='Combine darks and lights')
     dark_sub_fg = es.map(sub,
@@ -208,7 +220,6 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                                       name='Background Bundle')
 
     # sum the backgrounds
-
     summed_bg = es.accumulate(dstar(add_img), bg_bundle,
                               start=dstar(pull_array),
                               state_key='img1',
@@ -495,7 +506,7 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
     _s.add(pdf_stream)
 
     if vis:
-        foreground_stream.sink(star(LiveImage(
+        es.sink(foreground_stream, star(LiveImage(
             'img', window_title='Dark Subtracted Image', cmap='viridis')))
         zlpm = es.zip_latest(p_corrected_stream, mask_stream,
                              clear_on_lossless_stop=True)
@@ -560,9 +571,9 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
         mega_render = [
             es.map(render_and_clean,
                    es.zip_latest(
-                       es.zip(h_timestamp_stream,
+                       es.zip(if_not_dark_stream,  # raw events
                               # human readable event timestamp
-                              if_not_dark_stream,  # raw events,
+                              h_timestamp_stream,
                               stream_name='mega_render zip'
                               ),
                        eventify_raw_start,
@@ -571,8 +582,8 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                    ),
                    string=light_template,
                    input_info={
-                       'human_timestamp': (('data', 'human_timestamp'), 0),
-                       'raw_event': ((), 1),
+                       'human_timestamp': (('data', 'human_timestamp'), 1),
+                       'raw_event': ((), 0),
                        'raw_start': (('data',), 2),
                        'raw_descriptor': (('data',), 3),
                        'analyzed_start': (('data',), 4)
@@ -609,29 +620,31 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                             ) for cs in mega_render]
 
         _s.update([es.map(writer_templater,
-                es.zip_latest(es.zip(s2, s1, stream_name='zip render and data',
+                          es.zip_latest(
+                              es.zip(s2, s1, stream_name='zip render and data',
                                      zip_type='truncate'), made_dir,
                               stream_name='zl dirs and render and data'
-                              ),
-                input_info=ii,
-                output_info=[('final_filename', {'dtype': 'str'})],
-                stream_name='Write {}'.format(s1.stream_name),
-                **kwargs) for s1, s2, made_dir, ii, writer_templater, kwargs
-         in
-         zip(
-             streams_to_be_saved,
-             mega_render,
-             make_dirs,  # prevent run condition btwn dirs and files
-             input_infos,
-             save_callables,
-             saver_kwargs
-         )])
+                          ),
+                          input_info=ii,
+                          output_info=[('final_filename', {'dtype': 'str'})],
+                          stream_name='Write {}'.format(s1.stream_name),
+                          **kwargs) for
+                   s1, s2, made_dir, ii, writer_templater, kwargs
+                   in
+                   zip(
+                       streams_to_be_saved,
+                       mega_render,
+                       make_dirs,  # prevent run condition btwn dirs and files
+                       input_infos,
+                       save_callables,
+                       saver_kwargs
+                   )])
 
         _s.add(es.map(dump_yml, es.zip(eventify_raw_start, md_render),
-               input_info={0: (('data', 'filename'), 1),
-                           1: (('data',), 0)},
-               full_event=True,
-               stream_name='dump yaml'))
+                      input_info={0: (('data', 'filename'), 1),
+                                  1: (('data',), 0)},
+                      full_event=True,
+                      stream_name='dump yaml'))
         [es.zip(cs,
                 streams_to_be_s, zip_type='truncate',
                 stream_name='zip_print'
