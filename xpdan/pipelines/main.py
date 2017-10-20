@@ -50,7 +50,8 @@ class ClearOnStart(es.EventStream):
 
     def update(self, x, who=None):
         if x[0] == 'start':
-            L = [self.emit(('clear', None)), self.emit(x)]
+            print('clear')
+            L = [self.emit(y) for y in [('clear', None), x]]
         else:
             L = self.emit(x)
         return L

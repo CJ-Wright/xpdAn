@@ -6,4 +6,5 @@ class StartStopCallback(CallbackBase):
         print('START ANALYSIS ON {}'.format(doc['uid']))
 
     def stop(self, doc):
-        print('FINISH ANALYSIS ON {}'.format(doc['run_start']))
+        if doc:
+            print('FINISH ANALYSIS ON {}'.format(doc['run_start']))
