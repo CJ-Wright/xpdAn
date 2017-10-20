@@ -118,7 +118,7 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
     if_not_dark_stream.sink(star(StartStopCallback()))
     eventify_raw_start = es.Eventify(if_not_dark_stream,
                                      stream_name='eventify raw start')
-    h_timestamp_stream = es.map(_timestampstr, if_not_dark_stream,
+    h_timestamp_stream = es.map(_timestampstr, eventify_raw_start,
                                 input_info={0: 'time'},
                                 output_info=[('human_timestamp',
                                               {'dtype': 'str'})],
@@ -291,7 +291,15 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                                           document_name='start',
                                           full_event=True,
                                           stream_name='If not calibration')
-    loaded_cal_stream = es.map(load_geo, eventify_raw_start,
+
+    cal_md_stream = es.Eventify(if_not_calibration_stream,
+                                'calibration_md',
+                                output_info=[('calibration_md',
+                                              {'dtype': 'dict',
+                                               'source': 'workflow'})],
+                                stream_name='Eventify Calibration')
+
+    loaded_cal_stream = es.map(load_geo, cal_md_stream,
                                input_info={'cal_params': 'calibration_md'},
                                output_info=[('geo',
                                              {'dtype': 'object',
