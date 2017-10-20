@@ -23,6 +23,7 @@ def test_main_pipeline(exp_db, fast_tmp_dir, start_uid3):
         indent = ' ' * 4 * level
         print('{}{}/'.format(indent, os.path.basename(root)))
         subindent = ' ' * 4 * (level + 1)
+        files.sort()
         for f in files:
             print('{}{}'.format(subindent, f))
     assert 'Au' in os.listdir(fast_tmp_dir)
