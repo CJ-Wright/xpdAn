@@ -99,7 +99,7 @@ class NormalizeComposition(es.EventStream):
 
     def update(self, x, who=None):
         name, doc = x
-        if name == 'start':
+        if name == 'start' and doc['sample_name'] in self.lt:
             doc['composition_string'] = self.lt[doc['sample_name']]
         return self.emit(x)
 
@@ -178,10 +178,7 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
     norm_cryostream = NormalizeCryostream(if_not_dark_stream_no_clear)
 
     # THIS LINE IS FOR BEN ONLY NO ONE ELSE USE THIS!!!!!!!!!!!!!!!!!!!!!!!!!!
-    norm_comp = NormalizeComposition(norm_cryostream)
-
-    # Inject a clear doc upon start here
-    if_not_dark_stream = ClearOnStart(norm_comp)
+    if_not_dark_stream = NormalizeComposition(norm_cryostream)
 
     # Let the users know when their data has start/finished analysis
     # May need to get fancier about this if we buffer a lot
@@ -716,3 +713,15 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
 
     print('Finish pipeline configuration')
     return raw_source
+
+
+class MainPipelineCallback(CallbackBase):
+    def __init__(self, *args, **kwargs):
+        self.args = args,
+        self.kwargs = kwargs
+        self.s = None
+
+    def __call__(self, name, doc):
+        if name == 'start':
+            self.s = conf_main_pipeline(*self.args, **self.kwargs)
+        self.s.emit((name, doc))
