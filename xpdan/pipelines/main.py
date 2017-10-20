@@ -30,6 +30,8 @@ from ..calib import img_calibration, _save_calib_param
 from bluesky.callbacks.core import CallbackBase
 
 
+_s = set()
+
 class PrinterCallback(CallbackBase):
     def __init__(self):
         self.analysis_stage = None
@@ -97,10 +99,10 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
     xpdan.tools.mask_img
     """
     _pdf_config = dict(dataformat='QA', qmaxinst=28, qmax=22)
-    if pdf_config is None:
-        pdf_config = _pdf_config.copy()
-    else:
-        pdf_config = _pdf_config.copy().update(**pdf_config)
+    if pdf_config is not None:
+        _pdf_config.update(pdf_config)
+    pdf_config = _pdf_config.copy()
+
     if mask_kwargs is None:
         mask_kwargs = {}
     print('start pipeline configuration')
@@ -420,6 +422,7 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                                             'source': 'testing'})],
                        stream_name='I(Q)',
                        md=dict(analysis_stage='iq_q'))
+    _s.add(iq_stream)
 
     iq_rs_zl = es.zip_latest(iq_stream, eventify_raw_start)
 
@@ -444,6 +447,8 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                            md=dict(analysis_stage='iq_tth')
                            )
 
+    _s.add(tth_iq_stream)
+
     fq_stream = es.map(fq_getter,
                        iq_rs_zl,
                        input_info={0: ('q', 0), 1: ('iq', 0),
@@ -453,6 +458,7 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                                     ('config', {'dtype': 'dict'})],
                        dataformat='QA', qmaxinst=28, qmax=22,
                        md=dict(analysis_stage='fq'))
+    _s.add(fq_stream)
     pdf_stream = es.map(pdf_getter,
                         iq_rs_zl,
                         input_info={0: ('q', 0), 1: ('iq', 0),
@@ -460,8 +466,10 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                         output_info=[('r', {'dtype': 'array'}),
                                      ('pdf', {'dtype': 'array'}),
                                      ('config', {'dtype': 'dict'})],
-                        **pdf_config,
-                        md=dict(analysis_stage='pdf'))
+                        md=dict(analysis_stage='pdf')
+                        **pdf_config)
+    _s.add(pdf_stream)
+
     if vis:
         foreground_stream.sink(star(LiveImage(
             'img', window_title='Dark Subtracted Image', cmap='viridis')))
