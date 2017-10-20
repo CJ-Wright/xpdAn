@@ -29,8 +29,8 @@ from xpdview.callbacks import LiveWaterfall
 from ..calib import img_calibration, _save_calib_param
 from bluesky.callbacks.core import CallbackBase
 
-
 _s = set()
+
 
 class PrinterCallback(CallbackBase):
     def __init__(self):
@@ -291,13 +291,7 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                                           document_name='start',
                                           full_event=True,
                                           stream_name='If not calibration')
-    cal_md_stream = es.Eventify(if_not_calibration_stream,
-                                'calibration_md',
-                                output_info=[('calibration_md',
-                                              {'dtype': 'dict',
-                                               'source': 'workflow'})],
-                                stream_name='Eventify Calibration')
-    loaded_cal_stream = es.map(load_geo, cal_md_stream,
+    loaded_cal_stream = es.map(load_geo, eventify_raw_start,
                                input_info={'cal_params': 'calibration_md'},
                                output_info=[('geo',
                                              {'dtype': 'object',
@@ -361,7 +355,7 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
         if_setup_stream = es.filter(
             lambda sn: sn == 'Setup',
             zlfc_ds,
-            input_info={0: (('sample_name', ), 2)},
+            input_info={0: (('sample_name',), 2)},
             document_name='start',
             full_event=True,
             stream_name='Is Setup Mask'
@@ -466,7 +460,7 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                         output_info=[('r', {'dtype': 'array'}),
                                      ('pdf', {'dtype': 'array'}),
                                      ('config', {'dtype': 'dict'})],
-                        md=dict(analysis_stage='pdf')
+                        md=dict(analysis_stage='pdf'),
                         **pdf_config)
     _s.add(pdf_stream)
 
