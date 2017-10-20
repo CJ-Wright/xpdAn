@@ -1,4 +1,5 @@
 """Main XPD analysis pipeline"""
+import matplotlib.pyplot as plt
 import os
 from operator import sub, truediv
 from pprint import pprint
@@ -723,5 +724,6 @@ class MainPipelineCallback(CallbackBase):
 
     def __call__(self, name, doc):
         if name == 'start':
+            plt.close('all')
             self.s = conf_main_pipeline(*self.args, **self.kwargs)
         self.s.emit((name, doc))
