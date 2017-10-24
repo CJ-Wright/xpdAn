@@ -37,7 +37,6 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                        mask_setting='default',
                        mask_kwargs=None,
                        pdf_config=None,
-                       verbose=False,
                        calibration_md_folder='../xpdConfig/'
                        ):
     """Total data processing pipeline for XPD
@@ -70,9 +69,6 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
     pdf_config: dict, optional
         Configuration for making PDFs, see pdfgetx3 docs. Defaults to
         ``dict(dataformat='QA', qmaxinst=28, qmax=22)``
-    verbose: bool, optional
-        If True print many outcomes from the pipeline, for debuging use
-        only, defaults to False
     calibration_md_folder: str
         Path to where the calibration is stored for xpdAcq
 
@@ -232,7 +228,7 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
 
     # if calibration send to calibration runner
     zlfi = es.zip_latest(foreground_stream, es.zip(
-        if_not_dark_stream, eventify_raw_start), clear_on_lossless_stop=True)
+        if_not_dark_stream, eventify_raw_start))
     if_calibration_stream = es.filter(if_calibration,
                                       zlfi,
                                       input_info={0: ((), 1)},
@@ -305,7 +301,7 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
     # SPLIT INTO TWO NODES
     zlfl = es.zip_latest(foreground_stream, loaded_calibration_stream,
                          stream_name='Combine FG and Calibration',
-                         clear_on_lossless_stop=True)
+                         )
     p_corrected_stream = es.map(polarization_correction,
                                 zlfl,
                                 input_info={'img': ('img', 0),
@@ -321,7 +317,7 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                                        input_info={0: 'seq_num'},
                                        full_event=True),
                              loaded_calibration_stream,
-                             clear_on_lossless_stop=True)
+                             )
         mask_stream = es.map(lambda x: np.ones(x.shape, dtype=bool),
                              zlfc,
                              input_info={'x': ('img', 0)},
@@ -339,13 +335,13 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                                            input_info={0: 'seq_num'},
                                            full_event=True),
                                  loaded_calibration_stream,
-                                 clear_on_lossless_stop=True)
+                                 )
         else:
             zlfc = es.zip_latest(p_corrected_stream, loaded_calibration_stream,
-                                 clear_on_lossless_stop=True)
+                                 )
 
         zlfc_ds = es.zip_latest(zlfc, if_not_dark_stream,
-                                clear_on_lossless_stop=True)
+                                )
         if_setup_stream = es.filter(
             lambda sn: sn == 'Setup',
             zlfc_ds,
@@ -385,9 +381,10 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
 
         mask_stream = not_setup_mask_stream.union(blank_mask_stream)
         mask_stream.stream_name = 'If Setup pull Dummy Mask, else Mask'
+
     # generate binner stream
     zlmc = es.zip_latest(mask_stream, loaded_calibration_stream,
-                         clear_on_lossless_stop=True)
+                         )
 
     binner_stream = es.map(generate_binner,
                            zlmc,
@@ -398,7 +395,7 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                            img_shape=(2048, 2048),
                            stream_name='Binners')
     zlpb = es.zip_latest(p_corrected_stream, binner_stream,
-                         clear_on_lossless_stop=True)
+                         )
 
     iq_stream = es.map(integrate,
                        zlpb,
@@ -450,13 +447,15 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                         output_info=[('r', {'dtype': 'array'}),
                                      ('pdf', {'dtype': 'array'}),
                                      ('config', {'dtype': 'dict'})],
-                        **pdf_config,
-                        md=dict(analysis_stage='pdf'))
+                        md=dict(analysis_stage='pdf'),
+                        **pdf_config
+                        )
+    pdf_stream.sink(pprint)
     if vis:
         foreground_stream.sink(star(LiveImage(
             'img', window_title='Dark Subtracted Image', cmap='viridis')))
         zlpm = es.zip_latest(p_corrected_stream, mask_stream,
-                             clear_on_lossless_stop=True)
+                             )
         masked_img = es.map(overlay_mask,
                             zlpm,
                             input_info={'img': (('data', 'img'), 0),
@@ -592,39 +591,11 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                                   1: (('data',), 0)},
                       full_event=True,
                       stream_name='dump yaml'))
-    if verbose:
-        # if_calibration_stream.sink(pprint)
-        # dark_sub_fg.sink(pprint)
-        # eventify_raw_start.sink(pprint)
-        # raw_source.sink(pprint)
-        # if_not_dark_stream.sink(pprint)
-        # zlid.sink(pprint)
-        # dark_sub_fg.sink(pprint)
-        # bg_query_stream.sink(pprint)
-        # if_not_calibration_stream.sink(pprint)
-        # if_not_background_stream.sink(pprint)
-        # if_background_stream.sink(pprint)
-        # fg_sub_bg.sink(pprint)
-        # if_not_background_split_stream.split_streams[0].sink(pprint)
-        # cal_md_stream.sink(pprint)
-        # loaded_calibration_stream.sink(pprint)
-        # if_not_dark_stream.sink(pprint)
-        # foreground_stream.sink(pprint)
-        # zlfl.sink(pprint)
-        # p_corrected_stream.sink(pprint)
-        # zlmc.sink(pprint)
-        # binner_stream.sink(pprint)
-        # zlpb.sink(pprint)
-        # iq_stream.sink(pprint)
-        # pdf_stream.sink(pprint)
-        # mask_stream.sink(pprint)
-        if write_to_disk:
-            md_render.sink(pprint)
-            [es.zip(cs,
-                    streams_to_be_s, zip_type='truncate',
-                    stream_name='zip_print'
-                    ).sink(star(PrinterCallback())
-                           ) for cs, streams_to_be_s in zip(
-                mega_render, streams_to_be_saved)]
+        [es.zip(cs,
+                streams_to_be_s, zip_type='truncate',
+                stream_name='zip_print'
+                ).sink(star(PrinterCallback())
+                       ) for cs, streams_to_be_s in zip(
+            mega_render, streams_to_be_saved)]
     print('Finish pipeline configuration')
     return raw_source

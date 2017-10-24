@@ -10,10 +10,9 @@ def test_main_pipeline(exp_db, fast_tmp_dir, start_uid3):
     source = conf_main_pipeline(exp_db, fast_tmp_dir,
                                 vis=True,
                                 write_to_disk=True,
-                                mask_setting=None,
-                                verbose=True)
-    # source.visualize('/home/christopher/dev/xpdAn/examples/mystream.png')
+                                mask_setting=None)
     t0 = time.time()
+
     for nd in exp_db[-1].documents(fill=True):
         source.emit(nd)
     t1 = time.time()
