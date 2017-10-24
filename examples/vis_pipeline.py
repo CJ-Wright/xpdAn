@@ -10,6 +10,7 @@ from databroker.broker import Broker
 from databroker.assets.sqlite import RegistryRO
 from databroker.headersource.sqlite import MDSRO
 from xpdan.pipelines.main import conf_main_pipeline
+from xpdan.pipelines.save_tiff import conf_save_tiff_pipeline
 from tempfile import TemporaryDirectory
 import copy
 
@@ -23,12 +24,15 @@ db = Broker(mds=mds, reg=fs)
 db.prepare_hook = lambda x, y: copy.deepcopy(y)
 td = TemporaryDirectory()
 
-for vis in [True, False]:
-    for write_to_disk in [True, False]:
-        source = conf_main_pipeline(db, td.name,
-                                    vis=vis,
-                                    write_to_disk=write_to_disk,
-                                    )
-        source.visualize('main_vis={}_write={}.png'.format(vis, write_to_disk))
-        plt.close("all")
+for pipeline, name in zip([conf_main_pipeline, conf_save_tiff_pipeline],
+                          ['main', 'save_tiff']):
+    for vis in [True, False]:
+        for write_to_disk in [True, False]:
+            source = pipeline(db, td.name,
+                              vis=vis,
+                              write_to_disk=write_to_disk,
+                              )
+            source.visualize(
+                '{}_vis={}_write={}.png'.format(name, vis, write_to_disk))
+            plt.close("all")
 td.cleanup()

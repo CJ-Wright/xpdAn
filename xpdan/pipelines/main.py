@@ -101,6 +101,7 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                                    stream_name='If not dark',
                                    full_event=True)
     if_not_dark_stream.sink(star(StartStopCallback()))
+
     eventify_raw_start = es.Eventify(if_not_dark_stream,
                                      stream_name='eventify raw start')
     h_timestamp_stream = es.map(_timestampstr, if_not_dark_stream,
