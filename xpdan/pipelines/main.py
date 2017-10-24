@@ -13,7 +13,7 @@ from skbeam.core.utils import q_to_twotheta
 from skbeam.io.fit2d import fit2d_save
 from skbeam.io.save_powder_output import save_output
 from streamz import Stream
-from xpdan.callbacks import StartStopCallback
+from xpdan.callbacks import StartStopCallback, PrinterCallback
 from xpdan.db_utils import query_dark, temporal_prox, query_background
 from xpdan.dev_utils import _timestampstr
 from xpdan.formatters import render_and_clean
@@ -27,19 +27,6 @@ from xpdan.tools import (pull_array, event_count,
                          pdf_getter, fq_getter, overlay_mask)
 from xpdview.callbacks import LiveWaterfall
 from ..calib import img_calibration, _save_calib_param
-from bluesky.callbacks.core import CallbackBase
-
-
-class PrinterCallback(CallbackBase):
-    def __init__(self):
-        self.analysis_stage = None
-
-    def start(self, doc):
-        self.analysis_stage = doc[1]['analysis_stage']
-
-    def event(self, doc):
-        print('file saved 1at {}'.format(doc[0]['data']['filename']))
-        super().event(doc)
 
 
 def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
