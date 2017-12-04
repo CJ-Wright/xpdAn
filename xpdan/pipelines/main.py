@@ -1,6 +1,7 @@
 """Main XPD analysis pipeline"""
 import os
 from operator import sub, truediv
+import copy
 
 import numpy as np
 import shed.event_streams as es
@@ -27,7 +28,7 @@ from xpdan.tools import (pull_array, event_count,
                          polarization_correction, mask_img, add_img,
                          pdf_getter, fq_getter,
                          overlay_mask,
-                         z_score_image)
+                         z_score_image, nu_pdf_getter)
 from xpdview.callbacks import LiveWaterfall
 from ..calib import img_calibration, _save_calib_param
 
@@ -96,7 +97,7 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
     --------
     xpdan.tools.mask_img
     """
-    _pdf_config = dict(dataformat='QA', qmaxinst=28, qmax=22)
+    _pdf_config = dict(dataformat='QA', qmaxinst=28, qmax=22, rstep=np.pi/22)
     if pdf_config is None:
         pdf_config = _pdf_config.copy()
     else:
@@ -409,8 +410,7 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                                                     'source': 'testing'})],
                            img_shape=(2048, 2048),
                            stream_name='Binners')
-    zlpb = es.zip_latest(p_corrected_stream, binner_stream,
-                         )
+    zlpb = es.zip_latest(p_corrected_stream, binner_stream, )
 
     iq_stream = es.map(integrate,
                        zlpb,
@@ -421,7 +421,21 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                                     ('iq', {'dtype': 'array',
                                             'source': 'testing'})],
                        stream_name='I(Q)',
-                       md=dict(analysis_stage='iq_q'))
+                       md=dict(analysis_stage='iq_q'),
+                       statistic='mean')
+
+    std_iq_stream = es.map(integrate,
+                           zlpb,
+                           input_info={'img': ('img', 0),
+                                       'binner': ('binner', 1)},
+                           output_info=[('q', {'dtype': 'array',
+                                               'source': 'testing'}),
+                                        ('iq', {'dtype': 'array',
+                                                'source': 'testing'})],
+                           stream_name='I(Q)',
+                           md=dict(analysis_stage='iq_q'),
+                           statistic='std'
+                           )
 
     iq_rs_zl = es.zip_latest(iq_stream, eventify_raw_start)
 
@@ -453,8 +467,15 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                        output_info=[('q', {'dtype': 'array'}),
                                     ('fq', {'dtype': 'array'}),
                                     ('config', {'dtype': 'dict'})],
-                       dataformat='QA', qmaxinst=28, qmax=22,
+                       dataformat='QA', qmaxinst=28, qmax=22, qmin=1,
                        md=dict(analysis_stage='fq'))
+
+    nu_pdf_stream = es.map(nu_pdf_getter, fq_stream,
+                           input_info={0: ('q', 0), 1: ('fq', 0), },
+                           output_info=[('r', {'dtype': 'array'}),
+                                        ('pdf', {'dtype': 'array'})],
+                           md=dict(analysis_stage='pdf'))
+
     pdf_stream = es.map(pdf_getter,
                         iq_rs_zl,
                         input_info={0: ('q', 0), 1: ('iq', 0),
@@ -473,40 +494,74 @@ def conf_main_pipeline(db, save_dir, *, write_to_disk=False, vis=True,
                            md=dict(analysis_stage='zscore')
                            )
     if vis:
-        foreground_stream.sink(star(LiveImage(
-            'img', window_title='Dark Subtracted Image', cmap='viridis')))
-        zlpm = es.zip_latest(p_corrected_stream, mask_stream,
-                             clear_on_lossless_stop=True)
-        masked_img = es.map(overlay_mask,
-                            zlpm,
-                            input_info={'img': (('data', 'img'), 0),
-                                        'mask': (('data', 'mask'), 1)},
-                            full_event=True,
-                            output_info=[('overlay_mask', {'dtype': 'array'})])
-        masked_img.sink(star(LiveImage('overlay_mask',
-                                       window_title='Dark/Background/'
-                                                    'Polarization Corrected '
-                                                    'Image with Mask',
-                                       cmap='viridis',
-                                       limit_func=lambda im: (
-                                           np.nanpercentile(im, 1),
-                                           np.nanpercentile(im, 99)),
-                                       # norm=LogNorm()
-                                       )))
-        iq_stream.sink(star(LiveWaterfall('q', 'iq',
-                                          units=('Q (A^-1)', 'Arb'),
-                                          window_title='I(Q)')))
-        tth_iq_stream.sink(star(LiveWaterfall('tth', 'iq',
-                                              units=('tth', 'Arb'),
-                                              window_title='I(tth)')))
-        fq_stream.sink(star(LiveWaterfall('q', 'fq',
-                                          units=('Q (A^-1)', 'F(Q)'),
-                                          window_title='F(Q)')))
-        pdf_stream.sink(star(LiveWaterfall('r', 'pdf',
-                                           units=('r (A)', 'G(r) A^-2'),
-                                           window_title='G(r)')))
+        # foreground_stream.sink(star(LiveImage(
+        #     'img', window_title='Dark Subtracted Image', cmap='viridis')))
+        # zlpm = es.zip_latest(p_corrected_stream, mask_stream,
+        #                      clear_on_lossless_stop=True)
+        # masked_img = es.map(overlay_mask,
+        #                     zlpm,
+        #                     input_info={'img': (('data', 'img'), 0),
+        #                                 'mask': (('data', 'mask'), 1)},
+        #                     full_event=True,
+        #                     output_info=[('overlay_mask', {'dtype': 'array'})])
+        # masked_img.sink(star(LiveImage('overlay_mask',
+        #                                window_title='Dark/Background/'
+        #                                             'Polarization Corrected '
+        #                                             'Image with Mask',
+        #                                cmap='viridis',
+        #                                limit_func=lambda im: (
+        #                                    np.nanpercentile(im, 1),
+        #                                    np.nanpercentile(im, 99)),
+        #                                # norm=LogNorm()
+        #                                )))
+        # iq_stream.sink(star(LiveWaterfall('q', 'iq',
+        #                                   units=('Q (A^-1)', 'Arb'),
+        #                                   window_title='I(Q)')))
+        # std_iq_stream.sink(star(LiveWaterfall('q', 'iq',
+        #                                       units=('Q (A^-1)', 'Arb'),
+        #                                       window_title='STD I(Q)')))
+        # ziq_std = es.zip(iq_stream, std_iq_stream)
+        # norm_std_iq_stream = es.map(lambda a, b, c: (np.nan_to_num(b / a), c),
+        #                             ziq_std,
+        #                             input_info={0: ('iq', 0),
+        #                                         1: ('iq', 1),
+        #                                         2: ('q', 0)},
+        #                             output_info=[('iq', {}),
+        #                                          ('q', {})])
+        # norm_std_iq_stream.sink(print)
+        # norm_std_iq_stream.sink(star(LiveWaterfall('q', 'iq',
+        #                                            units=('Q (A^-1)', 'Arb'),
+        #                                            window_title='NORM STD I(Q)')))
+
+        # tth_iq_stream.sink(star(LiveWaterfall('tth', 'iq',
+        #                                       units=('tth', 'Arb'),
+        #                                       window_title='I(tth)')))
+        # fq_stream.sink(star(LiveWaterfall('q', 'fq',
+        #                                   units=('Q (A^-1)', 'F(Q)'),
+        #                                   window_title='F(Q)')))
+        # pdf_stream.sink(star(LiveWaterfall('r', 'pdf',
+        #                                    units=('r (A)', 'G(r) A^-2'),
+        #                                    window_title='G(r)')))
+        # nu_pdf_stream.sink(star(LiveWaterfall('r', 'pdf',
+        #                                       units=('r (A)', 'G(r) A^-2'),
+        #                                       window_title='NU G(r)')))
+        # b_pdf_stream = es.Bundle(pdf_stream, nu_pdf_stream)
+        # b_pdf_stream = es.map(lambda a, b, c: (a - b, c),
+        #                       es.zip(pdf_stream, nu_pdf_stream),
+        #                       input_info={0: ('pdf', 0),
+        #                                   1: ('pdf', 1),
+        #                                   2: 'r'},
+        #                       output_info=[('pdf', {}), ('r', {})])
+        # b_pdf_stream.sink(star(LiveWaterfall('r', 'pdf',
+        #                                       units=('r (A)', 'G(r) A^-2'),
+        #                                       window_title='NU G(r)')))
         zscore_stream.sink(star(LiveImage(
-            'zimg', window_title='Zscore', cmap='viridis')))
+            'zimg', window_title='Zscore', cmap='viridis',
+            limit_func=lambda im: (
+                -2,
+                2),
+            # norm=LogNorm()
+        )))
 
     if write_to_disk:
         eventify_raw_descriptor = es.Eventify(

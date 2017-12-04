@@ -43,9 +43,10 @@ for hdr in list((db[-1], )):
         if e[0] == 'event' and vis:
             plt.pause(.1)
         if e[0] == 'event':
-            if e[1]['seq_num'] > 3:
+            if e[1]['seq_num'] > 1:
+                break
                 # AAA
-                pass
+                # pass
         source.emit(e)
 
 

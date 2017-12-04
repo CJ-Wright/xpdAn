@@ -20,6 +20,7 @@ except ImportError:
     from xpdan.shim import PDFGetterShim as PDFGetter
 from matplotlib.path import Path
 from scipy.sparse import csr_matrix
+from scipy.integrate import simps
 
 from skbeam.core.accumulators.binned_statistic import BinnedStatistic1D
 from skbeam.core.mask import margin, binned_outlier
@@ -324,8 +325,9 @@ def z_score_image(img, binner):
     return img2.reshape(img.shape)
 
 
-def integrate(img, binner):
-    return binner.bin_centers, np.nan_to_num(binner(img.flatten()))
+def integrate(img, binner, statistic=None):
+    return binner.bin_centers, np.nan_to_num(binner(img.flatten(),
+                                                    statistic=statistic))
 
 
 def polarization_correction(img, geo, polarization_factor=.99):
@@ -355,8 +357,12 @@ def pdf_getter(*args, **kwargs):
 
 
 def fq_getter(*args, **kwargs):
+    q, iq = args[:2]
+    truth_values = np.where((kwargs['qmaxinst'] > q) & (q > kwargs['qmin']))
     pg = PDFGetter()
-    pg(*args, **kwargs)
+    for t in [7, 6, 1]:
+        pg.transformations.pop(t)
+    pg(q[truth_values], iq[truth_values], **kwargs)
     res = pg.fq
     return res[0], res[1], pg.config
 
@@ -365,3 +371,10 @@ def overlay_mask(img, mask):
     img2 = img.copy()
     img2[~mask] = np.nan
     return img2
+
+
+def nu_pdf_getter(q, fq):
+    rgrid = np.arange(0, 30.01, np.pi/np.max(q))
+    dgr = 2 / np.pi * fq * np.sin(q * rgrid[:, np.newaxis])
+    gr = simps(dgr, q)
+    return rgrid, gr
