@@ -357,6 +357,13 @@ def pdf_getter(*args, **kwargs):
 
 
 def fq_getter(*args, **kwargs):
+    pg = PDFGetter()
+    pg(*args, **kwargs)
+    res = pg.fq
+    return res[0], res[1], pg.config
+
+
+def nu_fq_getter(*args, **kwargs):
     q, iq = args[:2]
     truth_values = np.where((kwargs['qmaxinst'] > q) & (q > kwargs['qmin']))
     pg = PDFGetter()

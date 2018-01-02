@@ -23,6 +23,8 @@ fs = RegistryRO(d)
 fs.register_handler('AD_TIFF', AreaDetectorTiffHandler)
 db = Broker(mds=mds, reg=fs)
 db.prepare_hook = lambda x, y: copy.deepcopy(y)
+print(db[-2].table(fill=True)['pe1_image'] + 5)
+'''
 td = TemporaryDirectory()
 
 # vis = False
@@ -35,7 +37,6 @@ source = conf_main_pipeline(db, td.name,
                             )
 # source.visualize(source_node=True)
 # source.visualize(source_node=False)
-# '''
 for hdr in list((db[-1], )):
     for e in hdr.documents():
         if e[0] == 'start':
@@ -52,5 +53,5 @@ for hdr in list((db[-1], )):
 
 plt.show()
 plt.close("all")
-# '''
 td.cleanup()
+# '''

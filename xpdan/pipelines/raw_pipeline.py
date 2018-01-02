@@ -34,7 +34,6 @@ background_corrected_img = (
     zip_latest(dark_corrected_background).
     map(op.sub, stream_name='background corrected img')
     )
-background_corrected_img_em = ToEventModel(background_corrected_img)
 
 is_calibration_img = Stream(stream_name='Is Calibration')
 
