@@ -125,13 +125,13 @@ def scan_summary(hdrs, fields=None, verbose=True):
     return datas
 
 
-def query_dark(db, docs, schema=1):
+def query_dark(doc, db, schema=1):
     """Get dark data from databroker
 
     Parameters
     ----------
     db: Broker instance
-    docs: tuple of dict
+    doc: tuple of dict
     schema: int
         Schema version
 
@@ -140,7 +140,7 @@ def query_dark(db, docs, schema=1):
 
     """
     if schema == 1:
-        doc = docs[0]
+        doc = doc
         dk_uid = doc.get('sc_dk_field_uid')
         if dk_uid:
             return db[dk_uid]
@@ -148,28 +148,28 @@ def query_dark(db, docs, schema=1):
             return []
 
 
-def query_background(db, docs, schema=1):
+def query_background(doc, db, schema=1):
     if schema == 1:
-        doc = docs[0]
+        doc = doc
         sample_name = doc.get('bkgd_sample_name')
         if sample_name:
             return db(sample_name=sample_name,
-                      bt_uid=doc['bt_uid'],
+                      # bt_uid=doc['bt_uid'],
                       is_dark={'$exists': False})
         else:
             return []
 
 
-def temporal_prox(res, docs):
+def temporal_prox(res, doc):
     # If there is only one result just use that one
     if isinstance(res, Header):
         return [res]
-    doc = docs[0]
+    doc = doc
     t = doc['time']
     dt_sq = [(t - r['start']['time']) ** 2 for r in res]
     if dt_sq:
         i = dt_sq.index(min(dt_sq))
-        min_r = [next(islice(res, i, i + 1))]
+        min_r = next(islice(res, i, i + 1))
     else:
-        min_r = []
+        min_r = None
     return min_r

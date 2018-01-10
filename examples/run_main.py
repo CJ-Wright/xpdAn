@@ -23,35 +23,28 @@ fs = RegistryRO(d)
 fs.register_handler('AD_TIFF', AreaDetectorTiffHandler)
 db = Broker(mds=mds, reg=fs)
 db.prepare_hook = lambda x, y: copy.deepcopy(y)
-print(db[-2].table(fill=True)['pe1_image'] + 5)
-'''
-td = TemporaryDirectory()
+from xpdan.pipelines.main2 import raw_source, filler, bg_query, bg_dark_query, \
+    fg_dark_query
 
-# vis = False
-vis = True
-source = conf_main_pipeline(db, td.name,
-                            vis=vis,
-                            write_to_disk=False,
-                            # mask_setting='auto'
-                            # verbose=True
-                            )
-# source.visualize(source_node=True)
-# source.visualize(source_node=False)
+filler.db = db
+bg_query.kwargs['db'] = db
+bg_dark_query.kwargs['db'] = db
+fg_dark_query.kwargs['db'] = db
 for hdr in list((db[-1], )):
     for e in hdr.documents():
         if e[0] == 'start':
             e[1].update(composition_string='EuTiO3')
-        if e[0] == 'event' and vis:
+        if e[0] == 'event':
             plt.pause(.1)
         if e[0] == 'event':
+            print(e[1]['seq_num'])
             if e[1]['seq_num'] > 1:
-                break
+                # break
                 # AAA
-                # pass
-        source.emit(e)
+                pass
+        raw_source.emit(e)
 
 
 plt.show()
 plt.close("all")
-td.cleanup()
 # '''

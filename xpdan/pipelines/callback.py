@@ -135,7 +135,7 @@ class MainCallback(CallbackBase):
                                                 ext='.yml',
                                                 raw_start=doc)
                 dump_yml(yml_name, doc)
-            dark = query_dark(self.db, [doc])
+            dark = query_dark([doc], self.db)
 
             # If there is a dark associated
             if dark:
@@ -143,7 +143,7 @@ class MainCallback(CallbackBase):
                 self.dark_img = next(dark.data(self.image_data_key))
                 if str(self.dark_img.dtype) == 'uint16':
                     self.dark_img = self.dark_img.astype('float32')
-            background = query_background(self.db, [doc])
+            background = query_background([doc], self.db)
 
             # If there is a background associated
             if background:
@@ -152,7 +152,7 @@ class MainCallback(CallbackBase):
                     background.data(self.image_data_key))
                 if str(self.background_img.dtype) == 'uint16':
                     self.background_img = self.background_img.astype('float32')
-                bg_dark = query_dark(self.db, [background['start']])
+                bg_dark = query_dark([background['start']], self.db)
 
                 if bg_dark:
                     bg_dark = temporal_prox(bg_dark, [doc])[0]
