@@ -13,8 +13,8 @@ from bluesky.callbacks.core import CallbackBase
 from skbeam.core.utils import q_to_twotheta
 from skbeam.io.fit2d import fit2d_save
 from skbeam.io.save_powder_output import save_output
-from streamz import Stream
-import streamz as sz
+from streamz_ext import Stream
+import streamz_ext as sz
 from xpdan.callbacks import StartStopCallback
 from xpdan.db_utils import query_dark, temporal_prox, query_background
 from xpdan.dev_utils import _timestampstr

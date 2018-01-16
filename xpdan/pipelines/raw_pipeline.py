@@ -1,4 +1,4 @@
-from streamz import Stream
+from streamz_ext import Stream
 import operator as op
 
 from skbeam.core.utils import q_to_twotheta

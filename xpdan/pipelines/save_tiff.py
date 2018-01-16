@@ -7,7 +7,7 @@ import tifffile
 from shed.event_streams import star
 
 from bluesky.callbacks.broker import LiveImage
-from streamz import Stream
+from streamz_ext import Stream
 from xpdan.db_utils import query_dark, temporal_prox
 from xpdan.dev_utils import _timestampstr
 from xpdan.formatters import render_and_clean
