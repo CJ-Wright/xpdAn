@@ -26,8 +26,20 @@ mask_setting.update(setting='first')
 filler = Filler(db=db)
 # Build the general pipeline from the raw_pipeline
 raw_source = Stream(stream_name='raw source')
+# Check that the data isn't a dark
+dk_uid = (
+    raw_source
+    .FromEventStream('start', ())
+    .map(lambda x: 'sc_dk_field_uid' in x)
+)
 # Fill the raw event stream
-source = raw_source.starmap(filler)
+source = (
+    raw_source
+    .combine_latest(dk_uid)
+    .filter(lambda x: x[1])
+    .pluck(0)
+    .starmap(filler)
+)
 
 # If new calibration uid invalidate our current calibration cache
 (FromEventStream(source, 'start', ('detector_calibration_client_uid',))
