@@ -13,8 +13,10 @@ from tempfile import TemporaryDirectory
 import copy
 from xpdan.pipelines.main import (raw_source, filler, bg_query,
                                   bg_dark_query, fg_dark_query,
-                                  filename_node, start_yaml_string)
+                                  filename_node, start_yaml_string,
+                                  mask_setting, img_counter)
 
+mask_setting['setting'] = 'first'
 td = TemporaryDirectory()
 tdn = td.name
 filename_node.kwargs['string'] = os.path.join(tdn, filename_node.kwargs['string'])
@@ -44,8 +46,9 @@ for hdr in list((db[-1], )):
                 # break
                 # AAA
                 pass
+            img_counter.emit(e[1]['seq_num'])
         raw_source.emit(e)
 
 plt.show()
 plt.close("all")
-# td.cleanup()3
+# td.cleanup()
