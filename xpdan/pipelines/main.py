@@ -22,6 +22,7 @@ mask_kwargs = {}
 fq_kwargs = {}
 pdf_kwargs = {}
 mask_setting.update(setting='first')
+calibration_md_folder = {'folder': 'xpdAcq_calib_info.yml'}
 
 filler = Filler(db=db)
 # Build the general pipeline from the raw_pipeline
@@ -109,7 +110,9 @@ FromEventStream(source, 'event', ('data', image_name), principle=True,
 
 # Save out calibration data to special place
 h_timestamp = start_timestamp.map(_timestampstr)
-gen_geo_cal.zip_latest(h_timestamp).sink(_save_calib_param)
+(gen_geo_cal
+    .zip_latest(h_timestamp)
+    .sink(lambda x: _save_calib_param(*x, calibration_md_folder['file_path'])))
 
 # edit mask, fq, and pdf kwargs
 for kwargs, node in zip([mask_kwargs, mask_kwargs, mask_kwargs,
