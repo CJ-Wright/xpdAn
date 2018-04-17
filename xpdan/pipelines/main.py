@@ -9,28 +9,26 @@ from tifffile import imsave
 from xpdan.db_utils import query_background, query_dark, temporal_prox
 from xpdan.formatters import render, clean_template
 from xpdan.io import pdf_saver, dump_yml
-from xpdan.pipelines.pipeline_utils import _timestampstr, clear_combine_latest, \
-    Filler
-from xpdan.pipelines.pipeline_utils import base_template
+from xpdan.pipelines.pipeline_utils import (_timestampstr,
+                                            clear_combine_latest, Filler,
+                                            base_template)
 from xpdtools.calib import _save_calib_param
-from xpdtools.pipelines.xpd_raw_pipeline import *
+from xpdtools.pipelines.raw_pipeline import *
 from xpdview.callbacks import LiveWaterfall
 
 image_name = 'pe1_image'
 db = 'db'
-mask_kwargs = {}
-fq_kwargs = {}
-pdf_kwargs = {}
 mask_setting.update(setting='first')
 calibration_md_folder = {'folder': 'xpdAcq_calib_info.yml'}
 
 filler = Filler(db=db)
 # Build the general pipeline from the raw_pipeline
 raw_source = Stream(stream_name='raw source')
+
+# TODO: change this when new dark logic comes
 # Check that the data isn't a dark
 dk_uid = (
-    raw_source
-    .FromEventStream('start', ())
+    FromEventStream('start', (), upstream=raw_source)
     .map(lambda x: 'sc_dk_field_uid' in x)
 )
 # Fill the raw event stream
@@ -43,37 +41,37 @@ source = (
 )
 
 # If new calibration uid invalidate our current calibration cache
-(FromEventStream(source, 'start', ('detector_calibration_client_uid',))
+(FromEventStream('start', ('detector_calibration_client_uid',), source)
     .unique(history=1)
     .map(lambda x: geometry_img_shape.lossless_buffer.clear()))
 
 # Clear composition every start document
-(FromEventStream(source, 'start', ())
+(FromEventStream('start', (), source)
     .sink(lambda x: clear_combine_latest(iq_comp, 1)))
-FromEventStream(source, 'start', ('composition_string',)).connect(composition)
+FromEventStream('start', ('composition_string',), source).connect(composition)
 
 # Calibration information
-(FromEventStream(source, 'start', ('bt_wavelength',))
+(FromEventStream('start', ('bt_wavelength',), source)
     .unique(history=1)
     .connect(wavelength))
-(FromEventStream(source, 'start', ('calibrant',))
+(FromEventStream('start', ('calibrant',), source)
     .unique(history=1)
     .connect(calibrant))
-(FromEventStream(source, 'start', ('detector',))
+(FromEventStream('start', ('detector',), source)
     .unique(history=1)
     .connect(detector))
 
-(FromEventStream(source, 'start', ()).
+(FromEventStream('start', (), source).
     map(lambda x: 'detector_calibration_server_uid' in x).
     connect(is_calibration_img))
 # Only pass through new calibrations (prevents us from recalculating cals)
-(FromEventStream(source, 'start', ('calibration_md',)).
+(FromEventStream('start', ('calibration_md',), source).
     unique(history=1).
     connect(geo_input))
 
-start_timestamp = FromEventStream(source, 'start', ('time',))
+start_timestamp = FromEventStream('start', ('time',), source)
 
-start_docs = FromEventStream(source, 'start', ())
+start_docs = FromEventStream('start', (), source)
 bg_query = (start_docs.map(query_background, db=db))
 bg_docs = (bg_query
     .zip(start_docs)
@@ -83,29 +81,30 @@ bg_docs = (bg_query
     .flatten())
 
 # Get bg dark
-bg_dark_query = (bg_docs
-    .FromEventStream('start', ())
+bg_dark_query = (FromEventStream('start', (), bg_docs)
     .map(query_dark, db=db)
     )
-(bg_dark_query.map(lambda x: x.documents(fill=True)).flatten()
-    .FromEventStream('event', ('data', image_name))
-    .connect(raw_background_dark))
+(FromEventStream('event', ('data', image_name),
+                 bg_dark_query.map(lambda x: x.documents(fill=True))
+                 .flatten())
+ .connect(raw_background_dark))
 
 # Get background
-bg_docs.FromEventStream('event', ('data', image_name)).connect(raw_background)
+FromEventStream('event', ('data', image_name), bg_docs).connect(raw_background)
 
 # Get foreground dark
 fg_dark_query = (start_docs
     .map(query_dark, db=db))
-(fg_dark_query
-    .map(lambda x: x.documents(fill=True)).flatten()
-    .FromEventStream('event', ('data', image_name))
+(FromEventStream('event', ('data', image_name),
+                 fg_dark_query
+                 .map(lambda x: x.documents(fill=True)).flatten()
+                 )
     .connect(raw_foreground_dark))
 
 # Get foreground
-FromEventStream(source, 'event', ('seq_num',), stream_name='seq_num'
+FromEventStream('event', ('seq_num',), source, stream_name='seq_num'
                 ).connect(img_counter)
-FromEventStream(source, 'event', ('data', image_name), principle=True,
+FromEventStream('event', ('data', image_name), source, principle=True,
                 stream_name='raw_foreground').connect(raw_foreground)
 
 # Save out calibration data to special place
@@ -114,20 +113,11 @@ h_timestamp = start_timestamp.map(_timestampstr)
     .zip_latest(h_timestamp)
     .sink(lambda x: _save_calib_param(*x, calibration_md_folder['file_path'])))
 
-# edit mask, fq, and pdf kwargs
-for kwargs, node in zip([mask_kwargs, mask_kwargs, mask_kwargs,
-                         fq_kwargs, pdf_kwargs], [all_mask, first_mask,
-                                                  no_mask,
-                                                  fq, pdf]):
-    # Don't mutate the base values
-    node.kwargs = dict(node.kwargs)
-    node.kwargs.update(kwargs)
-
 # Write things to disk
 # create filename string
-descriptor_docs = FromEventStream(source, 'descriptor', (),
+descriptor_docs = FromEventStream('descriptor', (), source,
                                   event_stream_name='primary')
-event_docs = FromEventStream(source, 'event', (), event_stream_name='primary')
+event_docs = FromEventStream('event', (), source, event_stream_name='primary')
 all_docs = (
     event_docs
         .combine_latest(start_docs, descriptor_docs, emit_on=0)
