@@ -15,9 +15,9 @@ from xpdan.formatters import render_and_clean
 from xpdan.io import pdf_saver, dump_yml, poni_saver
 from xpdan.pipelines.pipeline_utils import (if_dark, if_calibration,
                                             base_template)
-from xpdan.tools import (generate_binner, load_geo,
-                         polarization_correction, mask_img, pdf_getter,
-                         fq_getter, overlay_mask, z_score_image)
+from xpdtools.tools import (generate_binner, load_geo,
+                            polarization_correction, mask_img, pdf_getter,
+                            fq_getter, overlay_mask, z_score_image)
 from xpdview.callbacks import LiveWaterfall
 
 
