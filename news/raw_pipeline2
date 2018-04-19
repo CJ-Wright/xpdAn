@@ -1,0 +1,15 @@
+**Added:** None
+
+**Changed:**
+
+* Built a ``Streamz`` and ``SHED`` driven pipeline for data processing
+
+**Deprecated:** None
+
+**Removed:**
+
+* The tooling in ``xpdan.tools`` has been moved to ``xpdtools.tools``
+
+**Fixed:** None
+
+**Security:** None
