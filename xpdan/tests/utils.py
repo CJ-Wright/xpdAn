@@ -93,7 +93,7 @@ def insert_imgs(RE, reg, n, shape, save_dir, **kwargs):
                                          reg=reg)
     light_det = sim.SynSignalWithRegistry(name='pe1_image',
                                           func=lambda: (np.random.random(
-                                              shape) * 65535) .astype('uint16'),
+                                              shape) * 65535).astype('uint16'),
                                           reg=reg)
     beamtime_uid = str(uuid4())
     base_md = dict(beamtime_uid=beamtime_uid,
