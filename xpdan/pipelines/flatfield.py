@@ -69,23 +69,19 @@ start_docs.sink(lambda x: raw_background_dark.emit(0.0))
 start_docs.sink(lambda x: raw_background.emit(0.0))
 start_docs.sink(lambda x: raw_foreground_dark.emit(0.0))
 
-# Shutter position
-shutter_position = FromEventStream('event', ('data', shutter_name), raw_source)
-
 # Get foreground dark
-((FromEventStream('event', ('data', image_name), raw_source)
-  .zip(shutter_position)
-  .filter(lambda x: x[1] == XPD_SHUTTER_CONF['close'])
+((FromEventStream('event', ('data', image_name), raw_source,
+                  event_stream_name='dark')
   .map(np.float32)
   .connect(raw_foreground_dark)))
 
 # Get foreground
-FromEventStream('event', ('seq_num',), source, stream_name='seq_num'
+FromEventStream('event', ('seq_num',), source, stream_name='seq_num',
+                event_stream_name='primary'
                 ).connect(img_counter)
 (FromEventStream('event', ('data', image_name), source, principle=True,
+                 event_stream_name='primary',
                  stream_name='raw_foreground')
- .zip(shutter_position)
- .filter(lambda x: x[1] == XPD_SHUTTER_CONF['open'])
  .map(np.float32)
  .connect(raw_foreground))
 
