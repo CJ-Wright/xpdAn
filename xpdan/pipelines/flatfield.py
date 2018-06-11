@@ -9,6 +9,8 @@ from xpdconf.conf import glbl_dict
 from xpdconf.conf import XPD_SHUTTER_CONF
 from xpdtools.calib import _save_calib_param
 from xpdtools.pipelines.flatfield import *
+from shed.translation import ToEventStream
+from xpdtools.tools import z_score_image, overlay_mask
 
 image_name = glbl_dict['image_field']
 shutter_name = glbl_dict['shutter_field']
@@ -100,3 +102,14 @@ ave_ff.map(np.nan_to_num).sink(
                                     np.nanpercentile(x, 99.9)),
               #                   norm=SymLogNorm(.1),
               window_title='percent off').update)
+L = ave_ff.sink_to_list()
+z_score = (
+    pol_corrected_img.
+    combine_latest(binner, emit_on=0).
+    starmap(z_score_image, stream_name='z score').
+    combine_latest(mask, emit_on=0).starmap(overlay_mask))
+
+# Zscore
+z_score_plot = ToEventStream(z_score, ('z_score',)).starsink(
+    LiveImage('z_score', cmap='viridis', window_title='z score',
+              limit_func=lambda im: (-2, 2)), stream_name='z score vis')
