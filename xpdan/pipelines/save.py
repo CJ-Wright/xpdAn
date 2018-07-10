@@ -1,3 +1,5 @@
+from xpdan.formatters import render, clean_template
+from xpdan.io import dump_yml
 from xpdan.pipelines.main import *
 
 # '''
@@ -8,6 +10,9 @@ from xpdan.pipelines.main import *
 
 # This could be done by having each saver inside a callback which takes both
 # analyzed and raw documents, and creates the path from those two.
+from xpdan.pipelines.pipeline_utils import base_template
+
+from xpdconf.conf import glbl_dict
 
 start_yaml_string = (start_docs.map(lambda s: {'raw_start': s,
                                                'ext': '.yaml',
