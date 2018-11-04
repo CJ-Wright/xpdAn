@@ -2,7 +2,7 @@ import os
 
 import numpy as np
 from shed.translation import FromEventStream
-from streamz_ext import Stream
+from rapidz import Stream
 from tifffile import imsave
 from xpdan.callbacks import StartStopCallback
 from xpdan.db_utils import query_background, query_dark, temporal_prox

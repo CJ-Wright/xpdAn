@@ -5,7 +5,7 @@ from bluesky.callbacks.broker import LiveImage
 from shed.translation import FromEventStream, ToEventStream
 from skbeam.io import save_output
 from skbeam.io.fit2d import fit2d_save
-from streamz_ext import Stream
+from rapidz import Stream
 from tifffile import imsave
 from xpdan.db_utils import query_background, query_dark, temporal_prox
 from xpdan.formatters import render, clean_template
