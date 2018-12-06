@@ -45,6 +45,9 @@ class RunRouter(CallbackBase):
 
             callback(name, doc)
     """
+    # Copyright (c) 2015, Brookhaven Science Associates, Brookhaven National
+    # Laboratory. All rights reserved.
+
     def __init__(self, callback_factories):
         self.callback_factories = callback_factories
         self.callbacks = defaultdict(list)  # start uid -> callbacks
