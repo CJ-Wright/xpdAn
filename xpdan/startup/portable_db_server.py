@@ -1,5 +1,6 @@
 import io
 import os
+from pprint import pprint
 
 import fire
 import yaml
@@ -63,8 +64,6 @@ def run_server(
     # TODO: convert to bytestrings if needed
     # TODO: maybe separate this into different processes?
     # TODO: support multiple locations for folders
-    if prefix is None:
-        prefix = [b"an", b"raw"]
     d = RemoteDispatcher(outbound_proxy_address, prefix=prefix)
     portable_folder = folder
     portable_configs = {}
@@ -97,6 +96,7 @@ def run_server(
         ),
         NpyWriter,
     )
+    zed.sink(pprint)
     zed.starsink(an_broker.insert)
 
     raw_broker = Broker.from_config(portable_configs["raw"])
@@ -124,10 +124,7 @@ def run_server(
         ]
         + [
             lambda x: (lambda *nd: an_source.emit(nd))
-            if x.get("analysis_stage", None) == "pdf"
-            else None,
-            lambda x: (lambda *nd: an_source.emit(nd))
-            if x.get("analysis_stage", None) == "integration"
+            if x.get("analysis_stage", None) != "raw"
             else None,
         ]
     )

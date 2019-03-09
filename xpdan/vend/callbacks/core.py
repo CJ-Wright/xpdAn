@@ -639,7 +639,8 @@ class Retrieve(CallbackBase):
                 data[k] = v
                 filled[k] = True
             # If retrieve fails keep going
-            except (ValueError, KeyError):
+            except (ValueError, KeyError) as e:
+                print(e)
                 pass
         return ev
 

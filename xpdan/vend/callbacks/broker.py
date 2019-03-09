@@ -90,9 +90,11 @@ class LiveImage(Retrieve):
         norm=None,
         limit_func=None,
         auto_redraw=True,
-        interpolation=None
+        interpolation=None,
+        aspect='equal',
     ):
         super().__init__(handler_reg=handler_reg)
+        self.aspect = aspect
         self.interpolation = interpolation
         self.auto_redraw = auto_redraw
         self.limit_func = limit_func
@@ -122,6 +124,7 @@ class LiveImage(Retrieve):
                 self.limit_func,
                 self.auto_redraw,
                 self.interpolation,
+                self.aspect
             )
             cs._fig.canvas.set_window_title(field)
             cs._fig.show()

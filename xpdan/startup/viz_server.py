@@ -58,6 +58,7 @@ def run_server(
                     cmap="viridis",
                     norm=SymLogNorm(1),
                     limit_func=lambda x: (np.nanmin(x), np.nanmax(x)),
+                    aspect='auto',
                 ),
                 x,
             ),
