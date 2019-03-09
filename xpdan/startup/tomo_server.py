@@ -180,6 +180,16 @@ class FullFieldTomoCallback(Retrieve):
             s.emit(("start", self.start_doc))
             s.emit(("descriptor", doc))
 
+    def resource(self, resource):
+        super().resource(resource)
+        for s in self.sources:
+            s.emit(("resource", resource))
+
+    def datum(self, doc):
+        super().datum(doc)
+        for s in self.sources:
+            s.emit(("datum", doc))
+
     def event(self, doc):
         doc = super().event(doc)
         for s in self.sources:
