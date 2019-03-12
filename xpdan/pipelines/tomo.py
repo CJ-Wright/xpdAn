@@ -55,10 +55,13 @@ def full_field_tomo(source: Stream, qoi_name, rotation, **kwargs):
         np.deg2rad
     )
 
+    center = FromEventStream("start", ("tomo", "center"), upstream=source)
+
+    # QOI needs to be last so that we have all the translation nodes primed
+    # with start uids when we issue start documents
     qoi = FromEventStream(
         "event", ("data", qoi_name), upstream=source, principle=True
     )
-    center = FromEventStream("start", ("tomo", "center"), upstream=source)
     return locals()
 
 

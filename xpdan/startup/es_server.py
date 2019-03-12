@@ -28,7 +28,6 @@ def run_server(
     """
     # TODO: allow handing in of callbacks (for direct python use)
     d = RemoteDispatcher(outbound_proxy_address, prefix=prefix)
-    install_qt_kicker(loop=d.loop)
 
     d.subscribe(callback_from_name(server_name))
     print("Starting Elastic Search Server")
