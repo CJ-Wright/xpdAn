@@ -64,9 +64,7 @@ def run_server(
 
         Defaults to::
 
-          "{base_folder}/{folder_prefix}/"
-          "{start[analysis_stage]}/{start[sample_name]}_{human_timestamp}"
-          "_{__independent_vars__}{start[uid]:.6}_{event[seq_num]:04d}{ext}"
+          "{base_folder}/{folder_prefix}/{start[analysis_stage]}/{start[sample_name]}_{human_timestamp}_{__independent_vars__}{start[uid]:.6}_{event[seq_num]:04d}{ext}"
     outbound_proxy_address : str
         The address of the ZMQ proxy
     db_names : iterable of str
