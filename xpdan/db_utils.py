@@ -157,6 +157,38 @@ def query_dark(docs, db, schema=1):
             return []
 
 
+def query_flat_field(docs, db, schema=1):
+    """Get flat field data from databroker
+
+    Parameters
+    ----------
+    db: Broker instance
+    docs: tuple of dict
+    schema: int
+        Schema version
+
+    Returns
+    -------
+    list of Header :
+        The list of headers which meet the criteria
+    """
+    if schema == 1:
+        if isinstance(docs, (tuple, list)):
+            doc = docs[0]
+        else:
+            doc = docs
+        dk_uid = doc.get('sc_flat_field_uid')
+        if dk_uid:
+            try:
+                z = db[dk_uid]
+            except ValueError:
+                return []
+            else:
+                return z
+        else:
+            return []
+
+
 def query_background(docs, db, schema=1):
     """Get background data from databroker
 
