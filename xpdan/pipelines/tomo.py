@@ -75,7 +75,7 @@ def full_field_tomo(source: Stream, qoi_name, rotation, db=glbl_dict["exp_db"],
     )
 
     # extract the dark and flat field data
-    start_docs = SimpleFromEventStream("start", ())
+    start_docs = SimpleFromEventStream("start", (), upstream=source)
     dark_query = start_docs.map(query_dark, db=db)
     dark_query.filter(lambda x: x == []).sink(
         lambda x: print("No dark found!")
@@ -87,7 +87,7 @@ def full_field_tomo(source: Stream, qoi_name, rotation, db=glbl_dict["exp_db"],
     dark = SimpleFromEventStream(
                 "event",
                 ("data", qoi_name),
-                dark_query.filter(lambda x: x != [])
+                upstream=dark_query.filter(lambda x: x != [])
                     .map(lambda x: x if not isinstance(x, list) else x[0])
                     .map(lambda x: x.documents(fill=True))
                     .flatten(),
@@ -96,7 +96,7 @@ def full_field_tomo(source: Stream, qoi_name, rotation, db=glbl_dict["exp_db"],
     flat_field = SimpleFromEventStream(
                 "event",
                 ("data", qoi_name),
-                flat_field_query.filter(lambda x: x != [])
+                upstream=flat_field_query.filter(lambda x: x != [])
                     .map(lambda x: x if not isinstance(x, list) else x[0])
                     .map(lambda x: x.documents(fill=True))
                     .flatten(),
@@ -108,7 +108,7 @@ def full_field_tomo(source: Stream, qoi_name, rotation, db=glbl_dict["exp_db"],
 
 
 def tomo_event_stream(
-    source, rec, sinogram, *, qoi_name, rec_3D=None, **kwargs
+    source, rec, sinogram, *, qoi_name, rec_3D=None, norm_img=None, **kwargs
 ):
     raw_stripped = move_to_first(source.starmap(StripDepVar()))
 
@@ -122,6 +122,12 @@ def tomo_event_stream(
             (f"{qoi_name}_tomo_3D",),
             analysis_stage="{}_tomo_3D".format(qoi_name),
         )
+    if norm_img:
+        norm_img_tes = SimpleToEventStream(
+            norm_img, ('norm_img',),
+            analysis_stage="norm_img"
+        )
+    # TODO: also package up the average image
 
     # Don't run the sinogram for now, since it can produce issues with the viz
     sinogram_tes = SimpleToEventStream(

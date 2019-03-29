@@ -19,6 +19,8 @@ from xpdan.vend.callbacks import CallbackBase
 from xpdan.vend.callbacks.core import RunRouter, Retrieve
 from xpdan.vend.callbacks.zmq import Publisher, RemoteDispatcher
 from xpdconf.conf import glbl_dict
+from xpdtools.pipelines.radiograph import unique_data, radiograph_correction, \
+    average
 from xpdtools.pipelines.tomo import (
     tomo_prep,
     tomo_pipeline_piecewise,
@@ -41,7 +43,26 @@ pencil_order_3D = [
     tomo_event_stream,
 ]
 
-full_field_order = [full_field_tomo, tomo_pipeline_theta, tomo_event_stream]
+
+def full_field_factory(**kwargs):
+    """Build the pipeline for the full field reconstruction with image
+     corrections"""
+    # This function is needed because we need to surgically mutate the
+    # namespace, which the linker doesn't support
+    ns = link(full_field_tomo,
+              # mutate the namespace to facilitate chunk bridging
+              lambda **kwargs: {**kwargs, **dict(data=kwargs['theta'],)},
+              unique_data,
+              radiograph_correction,
+              lambda **kwargs: {**kwargs, **dict(data=kwargs['norm_img'],
+                                                 reset=kwargs['unique'])},
+              average,
+              lambda **kwargs: {**kwargs, **dict(img=kwargs['ave_img'])},
+              tomo_pipeline_theta,
+              tomo_event_stream,
+              **kwargs
+              )
+    return ns
 
 
 class PencilTomoCallback(CallbackBase):
@@ -224,7 +245,7 @@ def tomo_callback_factory(doc, publisher, handler_reg=None, **kwargs):
             )
     elif tomo_dict.get("type", None) == "full_field":
         return FullFieldTomoCallback(
-            lambda **inner_kwargs: link(*full_field_order, **inner_kwargs),
+            lambda **inner_kwargs: full_field_factory(**inner_kwargs),
             publisher,
             handler_reg,
             **kwargs,
@@ -237,6 +258,7 @@ def run_server(
     outbound_prefix=(b"raw", b"an", b"qoi"),
     inbound_prefix=b"tomo",
     _publisher=None,
+    db=glbl_dict['exp_db'],
     **kwargs,
 ):
     """Server for performing tomographic reconstructions
@@ -260,8 +282,6 @@ def run_server(
 
     """
     print(kwargs)
-    db = glbl_dict['exp_db']
-    handler_reg = db.reg.handler_reg
     if _publisher is None:
         publisher = Publisher(inbound_proxy_address, prefix=inbound_prefix)
     else:
@@ -269,7 +289,8 @@ def run_server(
 
     rr = RunRouter(
         [lambda x: tomo_callback_factory(x, publisher=publisher,
-                                         handler_reg=handler_reg, **kwargs)]
+                                         handler_reg=db.reg.handler_reg,
+                                         db=db, **kwargs)]
     )
 
     d = RemoteDispatcher(outbound_proxy_address, prefix=outbound_prefix)
