@@ -71,10 +71,8 @@ def tomo_event_stream(source, rec, sinogram, *, qoi_name, **kwargs):
     rec_tes = ToEventStream(
         rec, (f"{qoi_name}_tomo",), analysis_stage="{}_tomo".format(qoi_name)
     ).LastCache()
-    rec_tes.sink(print)
 
     # Don't run the sinogram for now, since it can produce issues with the viz
-    sinogram.map(np.shape).sink(print)
     sinogram_tes = ToEventStream(
         sinogram,
         (f"{qoi_name}_sinogram",),
