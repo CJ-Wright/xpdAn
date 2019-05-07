@@ -2,7 +2,9 @@ import itertools
 from pprint import pprint
 
 import fire
+import yaml
 from bluesky.utils import install_qt_kicker
+from databroker import Broker, BrokerES
 from rapidz import Stream, move_to_first
 from rapidz.link import link
 from xpdan.pipelines.pipeline_utils import Filler
@@ -24,6 +26,7 @@ from xpdtools.pipelines.tomo import (
     tomo_pipeline_piecewise,
     tomo_pipeline_theta,
 )
+import os
 
 pencil_order = [
     pencil_tomo,
@@ -219,6 +222,7 @@ def tomo_callback_factory(doc, publisher, handler_reg, **kwargs):
 
 
 def run_server(
+    db=None,
     outbound_proxy_address=glbl_dict["outbound_proxy_address"],
     inbound_proxy_address=glbl_dict["inbound_proxy_address"],
     outbound_prefix=(b"raw", b"an", b"qoi"),
@@ -246,13 +250,22 @@ def run_server(
 
     """
     print(kwargs)
-    db = glbl_dict['exp_db']
-    handler_reg = db.reg.handler_reg
+    if isinstance(db, BrokerES):
+        handlers = db.reg.handler_reg
+    if isinstance(db, str):
+        if os.path.exists(db):
+            with open(db, 'r') as f:
+                handlers = Broker.from_config(yaml.load(f)).reg.handler_reg
+        else:
+            handlers = Broker.named(db).reg.handler_reg
+    if handlers is None:
+        db = glbl_dict['exp_db']
+        handlers = db.reg.handler_reg
     publisher = Publisher(inbound_proxy_address, prefix=inbound_prefix)
 
     rr = RunRouter(
         [lambda x: tomo_callback_factory(x, publisher=publisher,
-                                         handler_reg=handler_reg, **kwargs)]
+                                         handler_reg=handlers, **kwargs)]
     )
 
     d = RemoteDispatcher(outbound_proxy_address, prefix=outbound_prefix)

@@ -10,6 +10,9 @@ from xpdan.vend.callbacks.core import RunRouter
 from xpdan.vend.callbacks.zmq import RemoteDispatcher
 from xpdconf.conf import glbl_dict
 from xpdview.callbacks import LiveWaterfall
+from databroker._core import BrokerES, Broker
+import os
+import yaml
 
 plt.ion()
 
@@ -22,6 +25,7 @@ def if_correct_start(callback, start_doc):
 
 
 def run_server(
+    db=None,
     handlers=None,
     prefix=None,
     outbound_proxy_address=glbl_dict["outbound_proxy_address"],
@@ -30,6 +34,8 @@ def run_server(
 
     Parameters
     ----------
+    db : BrokerES or str
+        The databroker to use for handlers
     handlers : dict
         The map between handler specs and handler classes, defaults to
         the map used by the experimental databroker if possible
@@ -41,6 +47,14 @@ def run_server(
         ``glbl_dict["outbound_proxy_address"]``
     """
 
+    if isinstance(db, BrokerES):
+        handlers = db.reg.handler_reg
+    if isinstance(db, str):
+        if os.path.exists(db):
+            with open(db, 'r') as f:
+                handlers = Broker.from_config(yaml.load(f)).reg.handler_reg
+        else:
+            handlers = Broker.named(db).reg.handler_reg
     if handlers is None:
         for db in ["exp_db", "an_db"]:
             if db in glbl_dict:

@@ -10,7 +10,10 @@ from xpdan.formatters import pfmt, clean_template, render2
 from xpdan.io import pdf_saver, dump_yml
 from xpdan.vend.callbacks.core import Retrieve
 from xpdtools.dev_utils import _timestampstr
-import mayavi.mlab as mlab
+try:
+    import mayavi.mlab as mlab
+except:
+    pass
 
 
 class StartStopCallback(CallbackBase):
