@@ -38,34 +38,7 @@ for yaml_file in ['raw', 'an']:
 """
 
 
-def run_server(
-    folder,
-    outbound_proxy_address=glbl_dict["outbound_proxy_address"],
-    prefix=None,
-    handlers=None,
-):
-    """Start up the portable databroker server
-
-    Parameters
-    ----------
-    folder : str
-        The location where to save the portable databrokers
-    outbound_proxy_address : str, optional
-        The address and port of the zmq proxy. Defaults to
-        ``glbl_dict["outbound_proxy_address"]``
-    prefix : bytes or list of bytes, optional
-        The Publisher channels to listen to. Defaults to
-        ``[b"an", b"raw"]``
-    handlers : dict
-        The map between handler specs and handler classes, defaults to
-        the map used by the experimental databroker if possible
-    """
-    # TODO: convert to bytestrings if needed
-    # TODO: maybe separate this into different processes?
-    # TODO: support multiple locations for folders
-    if prefix is None:
-        prefix = [b"an", b"raw"]
-    d = RemoteDispatcher(outbound_proxy_address, prefix=prefix)
+def create_run_router(folder, handlers=None):
     portable_folder = folder
     portable_configs = {}
     for folder_name in ["an", "raw"]:
@@ -129,9 +102,45 @@ def run_server(
             lambda x: (lambda *nd: an_source.emit(nd))
             if x.get("analysis_stage", None) == "integration"
             else None,
+            lambda x: (lambda *nd: an_source.emit(nd))
+            if x.get("analysis_stage", None) != "raw"
+            else None,
+            lambda x: print
+
         ]
     )
+    return rr
 
+
+def run_server(
+    folder,
+    outbound_proxy_address=glbl_dict["outbound_proxy_address"],
+    prefix=None,
+    handlers=None,
+):
+    """Start up the portable databroker server
+
+    Parameters
+    ----------
+    folder : str
+        The location where to save the portable databrokers
+    outbound_proxy_address : str, optional
+        The address and port of the zmq proxy. Defaults to
+        ``glbl_dict["outbound_proxy_address"]``
+    prefix : bytes or list of bytes, optional
+        The Publisher channels to listen to. Defaults to
+        ``[b"an", b"raw"]``
+    handlers : dict
+        The map between handler specs and handler classes, defaults to
+        the map used by the experimental databroker if possible
+    """
+    # TODO: convert to bytestrings if needed
+    # TODO: maybe separate this into different processes?
+    # TODO: support multiple locations for folders
+    if prefix is None:
+        prefix = [b"an", b"raw"]
+    d = RemoteDispatcher(outbound_proxy_address, prefix=prefix)
+    rr = create_run_router(folder, handlers=handlers)
     d.subscribe(rr)
 
     print("Starting Portable DB Server")
