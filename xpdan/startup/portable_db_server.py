@@ -38,34 +38,21 @@ for yaml_file in ['raw', 'an']:
 """
 
 
-def run_server(
-    folder,
-    outbound_proxy_address=glbl_dict["outbound_proxy_address"],
-    prefix=None,
-    handlers=None,
-):
-    """Start up the portable databroker server
+def create_rr(folder, handlers=None):
+    """Create RunRouter for saving data to portable databrokers
 
     Parameters
     ----------
     folder : str
-        The location where to save the portable databrokers
-    outbound_proxy_address : str, optional
-        The address and port of the zmq proxy. Defaults to
-        ``glbl_dict["outbound_proxy_address"]``
-    prefix : bytes or list of bytes, optional
-        The Publisher channels to listen to. Defaults to
-        ``[b"an", b"raw"]``
-    handlers : dict
-        The map between handler specs and handler classes, defaults to
-        the map used by the experimental databroker if possible
+        The folder to store the data into
+    handlers : dict, optional
+        The handlers for loading data
+
+    Returns
+    -------
+    RunRouter
+
     """
-    # TODO: convert to bytestrings if needed
-    # TODO: maybe separate this into different processes?
-    # TODO: support multiple locations for folders
-    if prefix is None:
-        prefix = [b"an", b"raw"]
-    d = RemoteDispatcher(outbound_proxy_address, prefix=prefix)
     portable_folder = folder
     portable_configs = {}
     for folder_name in ["an", "raw"]:
@@ -116,21 +103,49 @@ def run_server(
         )
     ).starsink(raw_broker.insert)
 
-    rr = RunRouter(
+    return RunRouter(
         [
             lambda x: (lambda *nd: raw_source.emit(nd))
             if x.get("analysis_stage", "") == "raw"
             else None
         ]
         + [
-            lambda x: (lambda *nd: an_source.emit(nd))
-            if x.get("analysis_stage", None) == "pdf"
-            else None,
-            lambda x: (lambda *nd: an_source.emit(nd))
-            if x.get("analysis_stage", None) == "integration"
+            lambda x: (lambda *nd: raw_source.emit(nd))
+            if x.get("analysis_stage", "") != "raw"
             else None,
         ]
     )
+
+
+def run_server(
+    folder,
+    outbound_proxy_address=glbl_dict["outbound_proxy_address"],
+    prefix=None,
+    handlers=None,
+):
+    """Start up the portable databroker server
+
+    Parameters
+    ----------
+    folder : str
+        The location where to save the portable databrokers
+    outbound_proxy_address : str, optional
+        The address and port of the zmq proxy. Defaults to
+        ``glbl_dict["outbound_proxy_address"]``
+    prefix : bytes or list of bytes, optional
+        The Publisher channels to listen to. Defaults to
+        ``[b"an", b"raw"]``
+    handlers : dict
+        The map between handler specs and handler classes, defaults to
+        the map used by the experimental databroker if possible
+    """
+    # TODO: convert to bytestrings if needed
+    # TODO: maybe separate this into different processes?
+    # TODO: support multiple locations for folders
+    if prefix is None:
+        prefix = [b"an", b"raw"]
+    d = RemoteDispatcher(outbound_proxy_address, prefix=prefix)
+    rr = create_rr(folder, handlers=handlers)
 
     d.subscribe(rr)
 

@@ -27,6 +27,43 @@ def if_correct_start(callback, start_doc):
         return callback
 
 
+def create_rr(handlers=None):
+    """Create RunRouter instance for visualizing data
+
+    Parameters
+    ----------
+    handlers : dict, optional
+        The handlers to use for loading externally stored data, if any
+
+    Returns
+    -------
+    RunRouter :
+        The RunRouter for data viz
+    """
+    if handlers is None:
+        handlers = {}
+    func_l = [
+        lambda x: if_correct_start(
+            LiveImage(
+                handler_reg=handlers,
+                cmap="viridis",
+                norm=SymLogNorm(1),
+                limit_func=lambda x: (np.nanmin(x), np.nanmax(x)),
+            ),
+            x,
+        ),
+        lambda x: LiveWaterfall(),
+    ]
+    if Live3DView:
+        func_l.append(
+            lambda x: Live3DView() if "tomo" in x["analysis_stage"] else None
+        )
+    func_l.append(
+        lambda x: BestEffortCallback(table_enabled=False, overplot=False)
+    )
+    return RunRouter(func_l)
+
+
 def run_server(
     handlers=None,
     prefix=None,
@@ -57,26 +94,7 @@ def run_server(
     d = RemoteDispatcher(outbound_proxy_address, prefix=prefix)
     install_qt_kicker(loop=d.loop)
 
-    func_l = [
-        lambda x: if_correct_start(
-            LiveImage(
-                handler_reg=handlers,
-                cmap="viridis",
-                norm=SymLogNorm(1),
-                limit_func=lambda x: (np.nanmin(x), np.nanmax(x)),
-            ),
-            x,
-        ),
-        lambda x: LiveWaterfall(),
-    ]
-    if Live3DView:
-        func_l.append(
-            lambda x: Live3DView() if "tomo" in x["analysis_stage"] else None
-        )
-    func_l.append(
-        lambda x: BestEffortCallback(table_enabled=False, overplot=False)
-    )
-    rr = RunRouter(func_l)
+    rr = create_rr(handlers)
 
     d.subscribe(rr)
     if save_folder:
