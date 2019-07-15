@@ -110,7 +110,7 @@ def create_rr(folder, handlers=None):
             else None
         ]
         + [
-            lambda x: (lambda *nd: raw_source.emit(nd))
+            lambda x: (lambda *nd: an_source.emit(nd))
             if x.get("analysis_stage", "") != "raw"
             else None,
         ]
