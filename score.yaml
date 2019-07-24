@@ -25,8 +25,6 @@ run:
     default: {conda: ophyd}
   pyfai:
     default: {conda: pyfai}
-  pyxdameraulevenshtein:
-    default: {conda: pyxdameraulevenshtein}
   pyyaml:
     default: {conda: pyyaml}
   scikit-beam:
