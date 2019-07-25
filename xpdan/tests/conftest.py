@@ -35,7 +35,6 @@ from bluesky.tests.conftest import (
 )
 from skbeam.io.fit2d import fit2d_save
 
-from xpdan.fuzzybroker import FuzzyBroker
 from .utils import insert_imgs
 
 import matplotlib.pyplot as plt
